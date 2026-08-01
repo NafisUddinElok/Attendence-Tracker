@@ -32,7 +32,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   
   // Replace with your local machine's IP if testing on a physical device,
   // or your production server URL.
-  final String backendUrl = 'http://192.168.1.100:3000/mark-attendance';
+  final String backendUrl = 'http://192.168.0.140:3000/mark-attendance';
   final String studentId = 'STU_001'; // In production, get this from login
 
   Future<void> _markAttendance() async {
