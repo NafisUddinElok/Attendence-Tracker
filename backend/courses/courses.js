@@ -75,6 +75,54 @@ router.get('/enrolled', requireAuth, (req, res) => {
   return res.json({ success: true, courses });
 });
 
+// --- GET /courses/:courseId/attendance (teacher — JSON, for in-app table) ---------
+// Same underlying data as the CSV export below, just as JSON so the Flutter
+// app can render a table without parsing CSV on-device.
+router.get('/:courseId/attendance', requireTeacherAuth, (req, res) => {
+  const courseId = parseInt(req.params.courseId, 10);
+
+  const course = db.prepare('SELECT * FROM courses WHERE id = ? AND teacher_id = ?')
+    .get(courseId, req.teacherId);
+  if (!course) {
+    return res.status(404).json({ success: false, message: 'Course not found or not yours.' });
+  }
+
+  const records = db.prepare(`
+    SELECT s.student_code, s.name, cs.label AS session_label, a.marked_at, a.distance_meters
+    FROM attendance a
+    JOIN students s ON s.id = a.student_id
+    JOIN class_sessions cs ON cs.id = a.session_id
+    WHERE cs.course_id = ?
+    ORDER BY a.marked_at DESC
+  `).all(courseId);
+
+  return res.json({ success: true, courseName: course.course_name, records });
+});
+
+// --- GET /courses/:courseId/my-attendance (student — their own records) -----------
+// Lets a student see which sessions they've been marked present for in a
+// course they're enrolled in. Scoped to req.studentId — a student can only
+// ever see their own attendance, never another student's.
+router.get('/:courseId/my-attendance', requireAuth, (req, res) => {
+  const courseId = parseInt(req.params.courseId, 10);
+
+  const enrolled = db.prepare('SELECT 1 FROM student_courses WHERE student_id = ? AND course_id = ?')
+    .get(req.studentId, courseId);
+  if (!enrolled) {
+    return res.status(404).json({ success: false, message: 'You are not enrolled in this course.' });
+  }
+
+  const records = db.prepare(`
+    SELECT cs.label AS session_label, a.marked_at, a.distance_meters
+    FROM attendance a
+    JOIN class_sessions cs ON cs.id = a.session_id
+    WHERE cs.course_id = ? AND a.student_id = ?
+    ORDER BY a.marked_at DESC
+  `).all(courseId, req.studentId);
+
+  return res.json({ success: true, records });
+});
+
 // --- GET /courses/:courseId/attendance-export (teacher — CSV download) ------------
 router.get('/:courseId/attendance-export', requireTeacherAuth, (req, res) => {
   const courseId = parseInt(req.params.courseId, 10);

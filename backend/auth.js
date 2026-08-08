@@ -55,7 +55,7 @@ function login(req, res) {
     { expiresIn: '8h' }
   );
 
-  return res.json({ success: true, token });
+  return res.json({ success: true, token, name: student.name });
 }
 
 // Middleware: verifies the JWT and attaches req.studentId. Rejects teacher tokens.
@@ -79,6 +79,36 @@ function requireAuth(req, res, next) {
   }
 }
 
+// --- Teacher registration -----------------------------------------------------
+// Mirrors student register(). Kept as a public, self-serve endpoint per
+// product decision — anyone who can reach the API can create a teacher
+// account. If you ever need to restrict this (e.g. require an invite code
+// or admin approval), this is the one function to gate.
+function teacherRegister(req, res) {
+  const { teacherCode, name, password } = req.body;
+
+  if (typeof teacherCode !== 'string' || !teacherCode.trim()) {
+    return res.status(400).json({ success: false, message: 'teacherCode is required.' });
+  }
+  if (typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ success: false, message: 'name is required.' });
+  }
+  if (typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({ success: false, message: 'password must be at least 6 characters.' });
+  }
+
+  const existing = db.prepare('SELECT id FROM teachers WHERE teacher_code = ?').get(teacherCode.trim());
+  if (existing) {
+    return res.status(409).json({ success: false, message: 'This teacher code is already registered.' });
+  }
+
+  const passwordHash = bcrypt.hashSync(password, 10);
+  db.prepare('INSERT INTO teachers (teacher_code, name, password_hash) VALUES (?, ?, ?)')
+    .run(teacherCode.trim(), name.trim(), passwordHash);
+
+  return res.json({ success: true, message: 'Registered successfully. You can now log in.' });
+}
+
 // --- Teacher login -------------------------------------------------------------
 function teacherLogin(req, res) {
   const { teacherCode, password } = req.body;
@@ -99,7 +129,7 @@ function teacherLogin(req, res) {
     { expiresIn: '8h' }
   );
 
-  return res.json({ success: true, token });
+  return res.json({ success: true, token, name: teacher.name });
 }
 
 // Middleware: verifies the JWT and attaches req.teacherId. Rejects student tokens.
@@ -123,4 +153,11 @@ function requireTeacherAuth(req, res, next) {
   }
 }
 
-module.exports = { register, login, requireAuth, teacherLogin, requireTeacherAuth };
+module.exports = {
+  register,
+  login,
+  requireAuth,
+  teacherRegister,
+  teacherLogin,
+  requireTeacherAuth,
+};

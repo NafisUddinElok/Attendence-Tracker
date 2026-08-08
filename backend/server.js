@@ -6,7 +6,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
-const { register, login, teacherLogin } = require('./auth');
+const { register, login, teacherRegister, teacherLogin } = require('./auth');
 const geofencingRoutes = require('./geofencing/geo');
 const coursesRoutes = require('./courses/courses');
 const sessionsRoutes = require('./sessions/sessions');
@@ -27,6 +27,7 @@ const authLimiter = rateLimit({
 
 app.post('/register', authLimiter, register);
 app.post('/login', authLimiter, login);
+app.post('/teacher-register', authLimiter, teacherRegister);
 app.post('/teacher-login', authLimiter, teacherLogin);
 
 app.use('/geofencing', geofencingRoutes);
