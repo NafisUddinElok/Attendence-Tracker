@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'attendence_service.dart';
 import 'attendance_screen.dart';
+import 'main.dart';
 import 'role_select_screen.dart';
 import 'student_attendance_history_screen.dart';
 import 'student_browse_courses_screen.dart';
@@ -125,6 +126,14 @@ class _StudentCoursesScreenState extends State<StudentCoursesScreen> {
       appBar: AppBar(
         title: const Text('My Courses'),
         actions: [
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: themeModeNotifier,
+            builder: (context, mode, _) => IconButton(
+              icon: Icon(themeModeIcon(mode)),
+              tooltip: themeModeLabel(mode),
+              onPressed: cycleThemeMode,
+            ),
+          ),
           TextButton.icon(
             onPressed: _browseCourses,
             icon: const Icon(Icons.search, color: Colors.white),

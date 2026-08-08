@@ -118,16 +118,20 @@ class _TeacherBulkImportScreenState extends State<TeacherBulkImportScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.amber.shade200),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.amber, size: 20),
-                  SizedBox(width: 8),
+                  Icon(Icons.info_outline, color: Colors.amber.shade900, size: 20),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Passwords are generated automatically and shown once below. '
                       'Never save them to a spreadsheet or commit them anywhere — '
                       'relay each one to its student directly, then discard.',
-                      style: TextStyle(fontSize: 12),
+                      // Fixed dark text on this box specifically — the box background
+                      // stays light amber in both themes, so it must not inherit the
+                      // app's default (theme-flipping) text color, or this would go
+                      // invisible in dark mode.
+                      style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
                     ),
                   ),
                 ],

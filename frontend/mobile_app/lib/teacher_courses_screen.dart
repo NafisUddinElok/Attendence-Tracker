@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'attendence_service.dart';
+import 'main.dart';
 import 'role_select_screen.dart';
 import 'teacher_attendance_history_screen.dart';
 import 'teacher_bulk_import_screen.dart';
@@ -73,6 +74,14 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
       appBar: AppBar(
         title: const Text('My Courses'),
         actions: [
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: themeModeNotifier,
+            builder: (context, mode, _) => IconButton(
+              icon: Icon(themeModeIcon(mode)),
+              tooltip: themeModeLabel(mode),
+              onPressed: cycleThemeMode,
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.group_add),
             tooltip: 'Bulk import students',

@@ -19,6 +19,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -48,6 +49,33 @@ class AttendanceService {
   static const _tokenKey = 'auth_token';
   static const _roleKey = 'auth_role'; // 'student' or 'teacher'
   static const _nameKey = 'auth_name';
+  static const _themeModeKey = 'theme_mode'; // 'light' | 'dark' | 'system'
+
+  // --- Theme preference (persisted locally, not tied to login) -------------------
+  // Not sent to the backend — purely a device-local UI preference, so a
+  // plain secure-storage key (reusing the same package as the auth token,
+  // no new dependency) is enough. Defaults to 'system' (follow the phone's
+  // setting) until the user picks something explicitly.
+  static Future<ThemeMode> getThemeMode() async {
+    final value = await _storage.read(key: _themeModeKey);
+    switch (value) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  static Future<void> setThemeMode(ThemeMode mode) async {
+    final value = switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      ThemeMode.system => 'system',
+    };
+    await _storage.write(key: _themeModeKey, value: value);
+  }
 
   // --- Student registration ---------------------------------------------------
   static Future<RegisterResult> register(String studentCode, String name, String password) {
