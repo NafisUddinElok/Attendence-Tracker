@@ -31,10 +31,18 @@ db.exec(`
     session_id INTEGER NOT NULL,
     marked_at TEXT NOT NULL,
     distance_meters REAL NOT NULL,
+    face_verified INTEGER NOT NULL DEFAULT 0,
     UNIQUE(student_id, session_id),  -- prevents duplicate marks
     FOREIGN KEY (student_id) REFERENCES students(id),
     FOREIGN KEY (session_id) REFERENCES class_sessions(id)
   );
 `);
+
+// Safe migration for databases created before face_verified existed.
+try {
+  db.exec('ALTER TABLE attendance ADD COLUMN face_verified INTEGER NOT NULL DEFAULT 0');
+} catch (err) {
+  // Column already exists — fine, ignore.
+}
 
 module.exports = db;

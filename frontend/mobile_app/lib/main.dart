@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'attendence_service.dart';
+import 'face_liveness_screen.dart';
 
 void main() {
   runApp(const AttendanceApp());
@@ -129,8 +130,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   final int sessionId = 1;
 
   Future<void> _markAttendance() async {
+    // 1. Run the on-device liveness check first. This opens the camera and
+    // requires a blink before returning true.
+    final faceVerified = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const FaceLivenessScreen()),
+    );
+
+    if (faceVerified != true) {
+      // User cancelled or the check timed out/failed — don't even attempt
+      // the network call.
+      return;
+    }
+
     setState(() => _isLoading = true);
-    final result = await AttendanceService.markAttendance(sessionId);
+    final result = await AttendanceService.markAttendance(sessionId, faceVerified: true);
     setState(() => _isLoading = false);
 
     if (!mounted) return;

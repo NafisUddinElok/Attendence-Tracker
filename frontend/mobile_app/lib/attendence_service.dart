@@ -54,10 +54,16 @@ class AttendanceService {
   static Future<void> logout() => _storage.delete(key: _tokenKey);
 
   /// Result of an attendance attempt, surfaced to the UI.
-  static Future<AttendanceResult> markAttendance(int sessionId) async {
+  /// [faceVerified] must come from a completed FaceLivenessScreen check —
+  /// the backend rejects the request outright if this isn't true.
+  static Future<AttendanceResult> markAttendance(int sessionId, {required bool faceVerified}) async {
     final token = await _getToken();
     if (token == null) {
       return AttendanceResult(success: false, message: 'Please log in again.');
+    }
+
+    if (!faceVerified) {
+      return AttendanceResult(success: false, message: 'Face verification is required.');
     }
 
     // 1. Make sure location services + permission are actually available.
@@ -100,6 +106,7 @@ class AttendanceService {
         'latitude': position.latitude,
         'longitude': position.longitude,
         'isMocked': position.isMocked,
+        'faceVerified': faceVerified,
       }),
     );
 

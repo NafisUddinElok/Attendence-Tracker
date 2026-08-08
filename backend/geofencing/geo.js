@@ -43,7 +43,7 @@ function isValidLongitude(v) {
 
 // --- Route: POST /geofencing/mark-attendance ------------------------------------
 router.post('/mark-attendance', attendanceLimiter, requireAuth, (req, res) => {
-  const { sessionId, latitude, longitude, isMocked } = req.body;
+  const { sessionId, latitude, longitude, isMocked, faceVerified } = req.body;
   const studentId = req.studentId; // from verified JWT — never trust body for this
 
   if (!Number.isInteger(sessionId)) {
@@ -59,6 +59,20 @@ router.post('/mark-attendance', attendanceLimiter, requireAuth, (req, res) => {
     return res.status(403).json({
       success: false,
       message: 'Fake GPS detected. Please turn off location spoofing.',
+    });
+  }
+
+  // faceVerified must come from an on-device liveness check (blink detection —
+  // see facialdetection/ on the Flutter side) run immediately before this call.
+  // Like isMocked, this is a client-reported flag: it stops accidental/careless
+  // spoofing (typed booleans, static photos held up to the camera) but a
+  // determined attacker with a modified client could still lie about it. If you
+  // need stronger guarantees later, send the captured frame to the server and
+  // verify it there instead of trusting the client's boolean.
+  if (faceVerified !== true) {
+    return res.status(403).json({
+      success: false,
+      message: 'Face verification failed. Please look at the camera and try again.',
     });
   }
 
@@ -84,9 +98,9 @@ router.post('/mark-attendance', attendanceLimiter, requireAuth, (req, res) => {
 
   try {
     db.prepare(`
-      INSERT INTO attendance (student_id, session_id, marked_at, distance_meters)
-      VALUES (?, ?, ?, ?)
-    `).run(studentId, sessionId, now.toISOString(), distance);
+      INSERT INTO attendance (student_id, session_id, marked_at, distance_meters, face_verified)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(studentId, sessionId, now.toISOString(), distance, 1);
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({ success: false, message: 'Attendance already marked for this session.' });
