@@ -14,39 +14,71 @@
 //   <key>NSLocationWhenInUseUsageDescription</key>
 //   <string>We use your location to verify classroom attendance.</string>
 
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+class LoginResult {
+  final bool success;
+  final String message;
+  LoginResult({required this.success, required this.message});
+}
 
 class AttendanceService {
   // Point this at your deployed server. For local testing on a physical
   // device, "localhost" won't work — use your machine's LAN IP instead
   // (e.g. http://192.168.1.10:3000). Android emulator uses 10.0.2.2.
-  static const String baseUrl = 'http://192.168.0.140:3000';
+  static const String baseUrl = 'http://192.168.0.151:3000';
 
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'auth_token';
 
   /// Logs in and stores the JWT securely (Keychain on iOS, Keystore on Android).
-  static Future<bool> login(String studentCode, String password) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'studentCode': studentCode, 'password': password}),
-    );
+  /// Never hangs indefinitely and never throws — network/timeout failures
+  /// come back as a LoginResult with a message you can show the user.
+  static Future<LoginResult> login(String studentCode, String password) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'studentCode': studentCode, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 10));
 
-    if (response.statusCode != 200) {
-      return false;
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        return LoginResult(success: false, message: 'Unexpected response from server.');
+      }
+
+      if (response.statusCode != 200 || data['success'] != true || data['token'] == null) {
+        return LoginResult(
+          success: false,
+          message: data['message'] as String? ?? 'Invalid student code or password.',
+        );
+      }
+
+      await _storage.write(key: _tokenKey, value: data['token'] as String);
+      return LoginResult(success: true, message: 'Logged in.');
+    } on TimeoutException {
+      return LoginResult(
+        success: false,
+        message: 'Could not reach the server. Check that the backend is running and '
+            'your phone is on the same WiFi network as $baseUrl.',
+      );
+    } on SocketException catch (e) {
+      return LoginResult(
+        success: false,
+        message: 'Network error (${e.message}). Check the server address and WiFi connection.',
+      );
+    } catch (e) {
+      return LoginResult(success: false, message: 'Unexpected error: $e');
     }
-
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    if (data['success'] != true || data['token'] == null) {
-      return false;
-    }
-
-    await _storage.write(key: _tokenKey, value: data['token'] as String);
-    return true;
   }
 
   static Future<String?> _getToken() => _storage.read(key: _tokenKey);
@@ -95,26 +127,39 @@ class AttendanceService {
     );
 
     // 3. Call the backend.
-    final response = await http.post(
-      Uri.parse('$baseUrl/geofencing/mark-attendance'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'sessionId': sessionId,
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'isMocked': position.isMocked,
-        'faceVerified': faceVerified,
-      }),
-    );
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/geofencing/mark-attendance'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'sessionId': sessionId,
+              'latitude': position.latitude,
+              'longitude': position.longitude,
+              'isMocked': position.isMocked,
+              'faceVerified': faceVerified,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    return AttendanceResult(
-      success: data['success'] == true,
-      message: data['message'] as String? ?? 'Unknown error.',
-    );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return AttendanceResult(
+        success: data['success'] == true,
+        message: data['message'] as String? ?? 'Unknown error.',
+      );
+    } on TimeoutException {
+      return AttendanceResult(
+        success: false,
+        message: 'Could not reach the server. Check your WiFi connection and that the backend is running.',
+      );
+    } on SocketException catch (e) {
+      return AttendanceResult(success: false, message: 'Network error (${e.message}).');
+    } catch (e) {
+      return AttendanceResult(success: false, message: 'Unexpected error: $e');
+    }
   }
 }
 

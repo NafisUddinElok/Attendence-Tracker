@@ -35,10 +35,11 @@ class _LoginScreenState extends State<LoginScreen> {
   final _studentCodeController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   Future<void> _login() async {
     setState(() => _isLoading = true);
-    final ok = await AttendanceService.login(
+    final result = await AttendanceService.login(
       _studentCodeController.text.trim(),
       _passwordController.text,
     );
@@ -46,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
 
-    if (ok) {
+    if (result.success) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const AttendanceScreen()),
@@ -56,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Login failed'),
-          content: const Text('Invalid student code or password.'),
+          content: Text(result.message),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -87,12 +88,23 @@ class _LoginScreenState extends State<LoginScreen> {
             TextField(
               controller: _studentCodeController,
               decoration: const InputDecoration(labelText: 'Student Code'),
+              autocorrect: false,
+              enableSuggestions: false,
+              textCapitalization: TextCapitalization.none,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                ),
+              ),
+              obscureText: _obscurePassword,
+              autocorrect: false,
+              enableSuggestions: false,
             ),
             const SizedBox(height: 24),
             _isLoading
