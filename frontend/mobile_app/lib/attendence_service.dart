@@ -605,6 +605,62 @@ class AttendanceService {
       return CsvDownloadResult(success: false, message: 'Unexpected error: $e');
     }
   }
+
+  // --- Teacher: bulk-import students for a new semester --------------------------
+  /// Sends only studentCode + name — passwords are generated server-side and
+  /// returned ONCE in the response. This method does not persist the
+  /// response anywhere; the caller (screen) is responsible for showing it to
+  /// the teacher and never writing it to disk.
+  static Future<BulkImportResult> bulkImportStudents(
+    List<Map<String, String>> students, {
+    int? courseId,
+  }) async {
+    final token = await _getToken();
+    if (token == null) {
+      return BulkImportResult(success: false, message: 'Please log in again.', entries: []);
+    }
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/students/bulk-import'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'students': students,
+              if (courseId != null) 'courseId': courseId,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        return BulkImportResult(success: false, message: 'Unexpected response from server.', entries: []);
+      }
+
+      if (data['success'] != true) {
+        return BulkImportResult(
+          success: false,
+          message: data['message'] as String? ?? 'Import failed.',
+          entries: [],
+        );
+      }
+
+      final entries = (data['results'] as List<dynamic>? ?? [])
+          .map((e) => BulkImportEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return BulkImportResult(success: true, message: '', entries: entries);
+    } on TimeoutException {
+      return BulkImportResult(success: false, message: 'Could not reach the server.', entries: []);
+    } on SocketException catch (e) {
+      return BulkImportResult(success: false, message: 'Network error (${e.message}).', entries: []);
+    } catch (e) {
+      return BulkImportResult(success: false, message: 'Unexpected error: $e', entries: []);
+    }
+  }
 }
 
 class AttendanceResult {
@@ -698,4 +754,35 @@ class ActiveSessionResult {
     this.label,
     this.endsAt,
   });
+}
+
+class BulkImportEntry {
+  final String studentCode;
+  final String name;
+  final String status; // 'created' | 'already_existed' | 'error'
+  final String? password; // only present when status == 'created'
+  final String? message; // only present when status == 'error'
+
+  BulkImportEntry({
+    required this.studentCode,
+    required this.name,
+    required this.status,
+    this.password,
+    this.message,
+  });
+
+  factory BulkImportEntry.fromJson(Map<String, dynamic> json) => BulkImportEntry(
+        studentCode: json['studentCode'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        status: json['status'] as String? ?? 'error',
+        password: json['password'] as String?,
+        message: json['message'] as String?,
+      );
+}
+
+class BulkImportResult {
+  final bool success;
+  final String message;
+  final List<BulkImportEntry> entries;
+  BulkImportResult({required this.success, required this.message, required this.entries});
 }

@@ -6,10 +6,11 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
-const { register, login, teacherRegister, teacherLogin } = require('./auth');
+const { register, login, teacherLogin } = require('./auth');
 const geofencingRoutes = require('./geofencing/geo');
 const coursesRoutes = require('./courses/courses');
 const sessionsRoutes = require('./sessions/sessions');
+const studentsRoutes = require('./students/students');
 
 const app = express();
 app.use(express.json());
@@ -27,12 +28,12 @@ const authLimiter = rateLimit({
 
 app.post('/register', authLimiter, register);
 app.post('/login', authLimiter, login);
-app.post('/teacher-register', authLimiter, teacherRegister);
 app.post('/teacher-login', authLimiter, teacherLogin);
 
 app.use('/geofencing', geofencingRoutes);
 app.use('/courses', coursesRoutes);
 app.use('/sessions', sessionsRoutes);
+app.use('/students', studentsRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Attendance server running on port ${PORT}`));

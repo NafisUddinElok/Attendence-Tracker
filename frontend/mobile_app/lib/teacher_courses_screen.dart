@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'attendence_service.dart';
 import 'role_select_screen.dart';
 import 'teacher_attendance_history_screen.dart';
+import 'teacher_bulk_import_screen.dart';
 import 'teacher_create_course_screen.dart';
 import 'teacher_session_start_screen.dart';
 
@@ -70,6 +71,14 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
       appBar: AppBar(
         title: const Text('My Courses'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.group_add),
+            tooltip: 'Bulk import students',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TeacherBulkImportScreen()),
+            ),
+          ),
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
         ],
       ),
