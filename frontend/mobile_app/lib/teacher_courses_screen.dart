@@ -5,10 +5,12 @@
 // geofence + duration for that course).
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'attendence_service.dart';
 import 'role_select_screen.dart';
 import 'teacher_attendance_history_screen.dart';
 import 'teacher_bulk_import_screen.dart';
+import 'teacher_course_roster_screen.dart';
 import 'teacher_create_course_screen.dart';
 import 'teacher_session_start_screen.dart';
 
@@ -128,10 +130,36 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
         return ListTile(
           leading: const Icon(Icons.menu_book),
           title: Text(course.courseName),
-          subtitle: Text(course.courseCode),
+          subtitle: InkWell(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: course.courseCode));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Copied "${course.courseCode}" — share this with students to join.')),
+              );
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  course.courseCode,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontFamily: 'monospace'),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.copy, size: 14, color: Colors.grey.shade500),
+              ],
+            ),
+          ),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              IconButton(
+                icon: const Icon(Icons.people_outline),
+                tooltip: 'Roster (who\'s enrolled)',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => TeacherCourseRosterScreen(course: course)),
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.history),
                 tooltip: 'Attendance history',

@@ -62,7 +62,7 @@ class _TeacherCreateCourseScreenState extends State<TeacherCreateCourseScreen> {
               controller: _courseCodeController,
               decoration: const InputDecoration(
                 labelText: 'Course Code',
-                helperText: 'e.g. CS101',
+                helperText: 'e.g. CS101 — students will use this exact code to join, so pick something short and memorable',
               ),
               autocorrect: false,
               enableSuggestions: false,

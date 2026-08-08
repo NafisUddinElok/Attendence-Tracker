@@ -268,6 +268,43 @@ class AttendanceService {
     return _authGetCourses('$baseUrl/courses/enrolled');
   }
 
+  // --- Student: join a course by typing its code (primary enroll path) -----------
+  // Preferred over browsing every course in the system — teacher tells
+  // students the courseCode directly (e.g. written on the board), student
+  // types it here. Returns the enrolled course's name so the UI can
+  // confirm "Joined <courseName>" without a second lookup.
+  static Future<JoinCourseResult> joinCourseByCode(String courseCode) async {
+    final token = await _getToken();
+    if (token == null) {
+      return JoinCourseResult(success: false, message: 'Please log in again.');
+    }
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/courses/join'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'courseCode': courseCode}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return JoinCourseResult(
+        success: data['success'] == true,
+        message: data['message'] as String? ?? (data['success'] == true ? 'Enrolled.' : 'Something went wrong.'),
+        courseName: data['courseName'] as String?,
+      );
+    } on TimeoutException {
+      return JoinCourseResult(success: false, message: 'Could not reach the server.');
+    } on SocketException catch (e) {
+      return JoinCourseResult(success: false, message: 'Network error (${e.message}).');
+    } catch (e) {
+      return JoinCourseResult(success: false, message: 'Unexpected error: $e');
+    }
+  }
+
   static Future<CourseActionResult> enrollCourse(int courseId) async {
     final token = await _getToken();
     if (token == null) {
@@ -552,6 +589,56 @@ class AttendanceService {
     }
   }
 
+  // --- Teacher: download roster CSV for a course (who's enrolled) ----------------
+  /// Same pattern as downloadAttendanceCsv above — auth header can't ride
+  /// along on a plain link, so fetch + temp file + native share sheet.
+  static Future<CsvDownloadResult> downloadRosterCsv(int courseId, String courseCode) async {
+    final token = await _getToken();
+    if (token == null) {
+      return CsvDownloadResult(success: false, message: 'Please log in again.');
+    }
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/courses/$courseId/students-export'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) {
+        Map<String, dynamic>? data;
+        try {
+          data = jsonDecode(response.body) as Map<String, dynamic>;
+        } catch (_) {
+          // Body wasn't JSON — fall through to default message.
+        }
+        return CsvDownloadResult(
+          success: false,
+          message: data?['message'] as String? ?? 'Could not export roster.',
+        );
+      }
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$courseCode-roster.csv');
+      await file.writeAsBytes(response.bodyBytes);
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'text/csv')],
+          subject: '$courseCode roster export',
+        ),
+      );
+
+      return CsvDownloadResult(success: true, message: 'CSV ready to save or send.');
+    } on TimeoutException {
+      return CsvDownloadResult(success: false, message: 'Could not reach the server.');
+    } on SocketException catch (e) {
+      return CsvDownloadResult(success: false, message: 'Network error (${e.message}).');
+    } catch (e) {
+      return CsvDownloadResult(success: false, message: 'Unexpected error: $e');
+    }
+  }
+
   // --- Teacher: download attendance CSV for a course -----------------------------
   /// Fetches /courses/:id/attendance-export with the auth header (a plain
   /// browser link can't attach that), writes it to the app's temp directory,
@@ -661,6 +748,102 @@ class AttendanceService {
       return BulkImportResult(success: false, message: 'Unexpected error: $e', entries: []);
     }
   }
+
+  // --- Teacher: full roster for a course (who's enrolled) ------------------------
+  // Name/code search is done client-side over this list — see
+  // TeacherCourseRosterScreen — since roster sizes are small enough that a
+  // local filter is instant and avoids a network call per keystroke.
+  static Future<RosterResult> getCourseRoster(int courseId) async {
+    final token = await _getToken();
+    if (token == null) {
+      return RosterResult(success: false, message: 'Please log in again.', students: []);
+    }
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/courses/$courseId/students'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data['success'] != true) {
+        return RosterResult(
+          success: false,
+          message: data['message'] as String? ?? 'Could not load roster.',
+          students: [],
+        );
+      }
+      final students = (data['students'] as List<dynamic>? ?? [])
+          .map((s) => EnrolledStudent.fromJson(s as Map<String, dynamic>))
+          .toList();
+      return RosterResult(success: true, message: '', students: students);
+    } on TimeoutException {
+      return RosterResult(success: false, message: 'Could not reach the server.', students: []);
+    } on SocketException catch (e) {
+      return RosterResult(success: false, message: 'Network error (${e.message}).', students: []);
+    } catch (e) {
+      return RosterResult(success: false, message: 'Unexpected error: $e', students: []);
+    }
+  }
+
+  // --- Teacher: remove a student from a course's roster ---------------------------
+  // Unenrolls only — does not touch the student's account or their
+  // attendance history in this or any other course.
+  static Future<CourseActionResult> removeStudentFromCourse(int courseId, int studentId) async {
+    final token = await _getToken();
+    if (token == null) {
+      return CourseActionResult(success: false, message: 'Please log in again.');
+    }
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$baseUrl/courses/$courseId/students/$studentId'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return CourseActionResult(
+        success: data['success'] == true,
+        message: data['message'] as String? ?? (data['success'] == true ? 'Removed.' : 'Something went wrong.'),
+      );
+    } on TimeoutException {
+      return CourseActionResult(success: false, message: 'Could not reach the server.');
+    } on SocketException catch (e) {
+      return CourseActionResult(success: false, message: 'Network error (${e.message}).');
+    } catch (e) {
+      return CourseActionResult(success: false, message: 'Unexpected error: $e');
+    }
+  }
+}
+
+class EnrolledStudent {
+  final int id;
+  final String studentCode;
+  final String name;
+  final String enrolledAt;
+
+  EnrolledStudent({
+    required this.id,
+    required this.studentCode,
+    required this.name,
+    required this.enrolledAt,
+  });
+
+  factory EnrolledStudent.fromJson(Map<String, dynamic> json) => EnrolledStudent(
+        id: json['id'] as int,
+        studentCode: json['student_code'] as String,
+        name: json['name'] as String,
+        enrolledAt: json['enrolled_at'] as String,
+      );
+}
+
+class RosterResult {
+  final bool success;
+  final String message;
+  final List<EnrolledStudent> students;
+  RosterResult({required this.success, required this.message, required this.students});
 }
 
 class AttendanceResult {
@@ -687,6 +870,13 @@ class CoursesResult {
   final String message;
   final List<Course> courses;
   CoursesResult({required this.success, required this.message, required this.courses});
+}
+
+class JoinCourseResult {
+  final bool success;
+  final String message;
+  final String? courseName;
+  JoinCourseResult({required this.success, required this.message, this.courseName});
 }
 
 class CourseActionResult {

@@ -16,6 +16,7 @@ import 'attendance_screen.dart';
 import 'role_select_screen.dart';
 import 'student_attendance_history_screen.dart';
 import 'student_browse_courses_screen.dart';
+import 'student_join_course_screen.dart';
 
 class StudentCoursesScreen extends StatefulWidget {
   const StudentCoursesScreen({super.key});
@@ -92,6 +93,14 @@ class _StudentCoursesScreenState extends State<StudentCoursesScreen> {
     );
   }
 
+  Future<void> _joinByCode() async {
+    final joined = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const StudentJoinCourseScreen()),
+    );
+    if (joined == true) _loadCourses();
+  }
+
   Future<void> _browseCourses() async {
     final enrolled = await Navigator.push<bool>(
       context,
@@ -116,13 +125,18 @@ class _StudentCoursesScreenState extends State<StudentCoursesScreen> {
       appBar: AppBar(
         title: const Text('My Courses'),
         actions: [
+          TextButton.icon(
+            onPressed: _browseCourses,
+            icon: const Icon(Icons.search, color: Colors.white),
+            label: const Text('Browse', style: TextStyle(color: Colors.white)),
+          ),
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _browseCourses,
+        onPressed: _joinByCode,
         icon: const Icon(Icons.add),
-        label: const Text('Browse courses'),
+        label: const Text('Join with code'),
       ),
       body: RefreshIndicator(
         onRefresh: _loadCourses,
