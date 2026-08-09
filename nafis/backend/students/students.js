@@ -25,11 +25,11 @@ function generatePassword(length = 8) {
 }
 
 // --- POST /students/bulk-import (teacher) -----------------------------------------
-// body: { students: [{ studentCode, name }, ...], courseId?: number }
-// If courseId is given, every student (new or already existing) is also
-// enrolled in that course — handy for adding a whole class roster at once.
+// body: { students: [{ studentCode, name }, ...], offeringId?: number }
+// If offeringId is given, every student (new or already existing) is also
+// enrolled in that course offering — handy for adding a whole class roster at once.
 router.post('/bulk-import', requireTeacherAuth, (req, res) => {
-  const { students, courseId } = req.body;
+  const { students, offeringId } = req.body;
 
   if (!Array.isArray(students) || students.length === 0) {
     return res.status(400).json({ success: false, message: 'A non-empty students array is required.' });
@@ -38,21 +38,23 @@ router.post('/bulk-import', requireTeacherAuth, (req, res) => {
     return res.status(400).json({ success: false, message: 'Max 300 students per import.' });
   }
 
-  let course = null;
-  if (courseId !== undefined) {
-    if (!Number.isInteger(courseId)) {
-      return res.status(400).json({ success: false, message: 'courseId must be an integer if provided.' });
+  let offering = null;
+  if (offeringId !== undefined) {
+    if (!Number.isInteger(offeringId)) {
+      return res.status(400).json({ success: false, message: 'offeringId must be an integer if provided.' });
     }
-    course = db.prepare('SELECT id FROM courses WHERE id = ? AND teacher_id = ?').get(courseId, req.teacherId);
-    if (!course) {
-      return res.status(404).json({ success: false, message: 'Course not found or not yours.' });
+    offering = db.prepare('SELECT id FROM course_offerings WHERE id = ? AND teacher_id = ?')
+      .get(offeringId, req.teacherId);
+    if (!offering) {
+      return res.status(404).json({ success: false, message: 'Course offering not found or not yours.' });
     }
   }
 
   const insertStudent = db.prepare('INSERT INTO students (student_code, name, password_hash) VALUES (?, ?, ?)');
   const findStudent = db.prepare('SELECT id FROM students WHERE student_code = ?');
   const enrollStudent = db.prepare(`
-    INSERT OR IGNORE INTO student_courses (student_id, course_id, enrolled_at) VALUES (?, ?, ?)
+    INSERT OR IGNORE INTO enrollments (course_offering_id, student_id, status, enrolled_at)
+    VALUES (?, ?, 'enrolled', ?)
   `);
 
   const results = [];
@@ -80,8 +82,8 @@ router.post('/bulk-import', requireTeacherAuth, (req, res) => {
       results.push({ studentCode, name, status: 'created', password });
     }
 
-    if (course) {
-      enrollStudent.run(studentId, course.id, new Date().toISOString());
+    if (offering) {
+      enrollStudent.run(offering.id, studentId, new Date().toISOString());
     }
   }
 

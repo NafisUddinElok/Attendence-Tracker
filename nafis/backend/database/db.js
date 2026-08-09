@@ -1,17 +1,22 @@
 // db.js
-// SQLite persistence layer. Swap this out for Postgres/MongoDB later if you need
-// multi-server scaling — the query shapes below will translate directly.
+// SQLite persistence layer.
+//
+// Schema shape follows the ER diagram: COURSES (catalog) -> COURSE_OFFERINGS
+// (a specific teacher teaching a course in a specific semester) ->
+// ENROLLMENTS (students in an offering) -> ATTENDANCE_SESSIONS (one per
+// class date) -> ATTENDANCE_RECORDS (one per student per session).
+//
+// Login stays as-is (separate students/teachers tables, separate
+// /login and /teacher-login endpoints) — this schema change is about
+// courses/offerings/sessions, not auth.
 
 const Database = require('better-sqlite3');
 const path = require('path');
 
-// Absolute path, anchored to this file's location — this way the database
-// is always the same file no matter which directory you run a script from
-// (e.g. `node server.js` from backend/ vs `node addStudents.js` from
-// backend/database/ used to silently create two different database files).
 const db = new Database(path.join(__dirname, 'attendance.db'));
 
 db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS students (
@@ -28,60 +33,73 @@ db.exec(`
     password_hash TEXT NOT NULL
   );
 
+  -- Master catalog of courses (e.g. "CS101 — Intro to Programming").
+  -- Not tied to a teacher or semester — that's what course_offerings is for.
   CREATE TABLE IF NOT EXISTS courses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     course_code TEXT UNIQUE NOT NULL,
-    course_name TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    credit REAL,
+    created_at TEXT NOT NULL
+  );
+
+  -- A specific teacher teaching a specific course in a specific semester.
+  -- This is what students actually enroll in and what sessions belong to.
+  CREATE TABLE IF NOT EXISTS course_offerings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id INTEGER NOT NULL,
     teacher_id INTEGER NOT NULL,
+    semester TEXT NOT NULL,          -- e.g. "Spring", "Fall"
+    academic_year INTEGER NOT NULL,  -- e.g. 2026
+    start_date TEXT,
+    end_date TEXT,
+    status TEXT NOT NULL DEFAULT 'active',  -- 'active' | 'archived'
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (course_id) REFERENCES courses(id),
     FOREIGN KEY (teacher_id) REFERENCES teachers(id)
   );
 
-  CREATE TABLE IF NOT EXISTS student_courses (
+  CREATE TABLE IF NOT EXISTS enrollments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_offering_id INTEGER NOT NULL,
     student_id INTEGER NOT NULL,
-    course_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'enrolled',  -- 'enrolled' | 'dropped'
     enrolled_at TEXT NOT NULL,
-    PRIMARY KEY (student_id, course_id),
-    FOREIGN KEY (student_id) REFERENCES students(id),
-    FOREIGN KEY (course_id) REFERENCES courses(id)
+    UNIQUE(course_offering_id, student_id),
+    FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id),
+    FOREIGN KEY (student_id) REFERENCES students(id)
   );
 
-  CREATE TABLE IF NOT EXISTS class_sessions (
+  -- One row per class date a teacher activates attendance for.
+  -- latitude/longitude/radius_meters aren't in the original ER diagram but
+  -- are required for the geofencing feature this app already has.
+  CREATE TABLE IF NOT EXISTS attendance_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    label TEXT NOT NULL,
-    course_id INTEGER,
-    starts_at TEXT NOT NULL,   -- ISO timestamp
-    ends_at TEXT NOT NULL,     -- ISO timestamp
+    course_offering_id INTEGER NOT NULL,
+    session_date TEXT NOT NULL,   -- YYYY-MM-DD, the date this session counts for
+    start_time TEXT NOT NULL,     -- ISO timestamp, when the window opened
+    end_time TEXT NOT NULL,       -- ISO timestamp, when the window closes
     latitude REAL NOT NULL,
     longitude REAL NOT NULL,
     radius_meters INTEGER NOT NULL DEFAULT 50,
-    FOREIGN KEY (course_id) REFERENCES courses(id)
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (course_offering_id) REFERENCES course_offerings(id)
   );
 
-  CREATE TABLE IF NOT EXISTS attendance (
+  -- One row per student per session they marked attendance for.
+  CREATE TABLE IF NOT EXISTS attendance_records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_id INTEGER NOT NULL,
     session_id INTEGER NOT NULL,
-    marked_at TEXT NOT NULL,
+    student_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'present',       -- 'present' (room to add 'late' etc. later)
+    method TEXT NOT NULL DEFAULT 'geofence_face',  -- how attendance was verified
     distance_meters REAL NOT NULL,
-    face_verified INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(student_id, session_id),  -- prevents duplicate marks
-    FOREIGN KEY (student_id) REFERENCES students(id),
-    FOREIGN KEY (session_id) REFERENCES class_sessions(id)
+    marked_at TEXT NOT NULL,
+    UNIQUE(session_id, student_id),  -- prevents duplicate marks
+    FOREIGN KEY (session_id) REFERENCES attendance_sessions(id),
+    FOREIGN KEY (student_id) REFERENCES students(id)
   );
 `);
-
-// Safe migration for databases created before face_verified existed.
-try {
-  db.exec('ALTER TABLE attendance ADD COLUMN face_verified INTEGER NOT NULL DEFAULT 0');
-} catch (err) {
-  // Column already exists — fine, ignore.
-}
-
-// Safe migration for databases created before course_id existed on sessions.
-try {
-  db.exec('ALTER TABLE class_sessions ADD COLUMN course_id INTEGER');
-} catch (err) {
-  // Column already exists — fine, ignore.
-}
 
 module.exports = db;

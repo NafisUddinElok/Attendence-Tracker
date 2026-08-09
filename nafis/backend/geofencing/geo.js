@@ -76,13 +76,13 @@ router.post('/mark-attendance', attendanceLimiter, requireAuth, (req, res) => {
     });
   }
 
-  const session = db.prepare('SELECT * FROM class_sessions WHERE id = ?').get(sessionId);
+  const session = db.prepare('SELECT * FROM attendance_sessions WHERE id = ?').get(sessionId);
   if (!session) {
     return res.status(404).json({ success: false, message: 'Class session not found.' });
   }
 
   const now = new Date();
-  if (now < new Date(session.starts_at) || now > new Date(session.ends_at)) {
+  if (now < new Date(session.start_time) || now > new Date(session.end_time)) {
     return res.status(400).json({ success: false, message: 'This class session is not currently active.' });
   }
 
@@ -98,9 +98,9 @@ router.post('/mark-attendance', attendanceLimiter, requireAuth, (req, res) => {
 
   try {
     db.prepare(`
-      INSERT INTO attendance (student_id, session_id, marked_at, distance_meters, face_verified)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(studentId, sessionId, now.toISOString(), distance, 1);
+      INSERT INTO attendance_records (session_id, student_id, status, method, distance_meters, marked_at)
+      VALUES (?, ?, 'present', 'geofence_face', ?, ?)
+    `).run(sessionId, studentId, distance, now.toISOString());
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({ success: false, message: 'Attendance already marked for this session.' });

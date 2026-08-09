@@ -43,7 +43,7 @@ class AttendanceService {
   // Point this at your deployed server. For local testing on a physical
   // device, "localhost" won't work — use your machine's LAN IP instead
   // (e.g. http://192.168.1.10:3000). Android emulator uses 10.0.2.2.
-  static const String baseUrl = 'http://10.1.0.173:3000';
+  static const String baseUrl = 'http://10.100.94.106:3000';
 
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'auth_token';
