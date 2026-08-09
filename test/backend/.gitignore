@@ -1,6 +1,0 @@
-node_modules/
-.env
-attendance.db
-attendance.db-shm
-attendance.db-wal
-*.log
