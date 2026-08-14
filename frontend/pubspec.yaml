@@ -1,0 +1,21 @@
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Networking & State
+  http: ^1.2.1
+  flutter_secure_storage: ^9.0.0
+  provider: ^6.1.2
+
+  # Device Fingerprint
+  device_info_plus: ^10.1.0
+
+  # Camera & Face Detection
+  camera: ^0.11.0+1
+  google_mlkit_face_detection: ^0.11.0
+  tflite_flutter: ^0.10.4
+  image: ^4.2.0
+
+  # Location & Geofencing
+  geolocator: ^12.0.0
+  permission_handler: ^11.3.1

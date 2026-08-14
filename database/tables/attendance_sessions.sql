@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS attendance_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_id UUID NOT NULL,
+    session_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    title VARCHAR(100) DEFAULT 'Regular Class',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_session_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_course ON attendance_sessions(course_id);
+
+
+
+
+ALTER TABLE attendance_sessions 
+ADD COLUMN IF NOT EXISTS center_lat DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+ADD COLUMN IF NOT EXISTS center_lng DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+ADD COLUMN IF NOT EXISTS radius_meters INT NOT NULL DEFAULT 50,
+ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(64) NOT NULL, -- Secret key for rolling 15s QR code
+ADD COLUMN IF NOT EXISTS ble_uuid VARCHAR(64),            -- Teacher's broadcast BLE UUID
+ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NOT NULL,
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;

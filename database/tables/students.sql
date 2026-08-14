@@ -17,3 +17,10 @@ CREATE TABLE IF NOT EXISTS students (
 -- Index for fast lookup
 CREATE INDEX IF NOT EXISTS idx_students_reg_no ON students(registration_no);
 CREATE INDEX IF NOT EXISTS idx_students_email ON students(email);
+
+
+
+ALTER TABLE students 
+ADD COLUMN IF NOT EXISTS device_id VARCHAR(128) UNIQUE,
+ADD COLUMN IF NOT EXISTS face_embedding JSONB, -- Stores 128/192/512 float vector array
+ADD COLUMN IF NOT EXISTS is_device_locked BOOLEAN DEFAULT FALSE;

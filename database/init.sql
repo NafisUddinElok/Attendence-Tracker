@@ -11,4 +11,13 @@
 \echo 'Creating Enrollments Table...'
 \i tables/enrollments.sql
 
-\echo 'Database initialization complete!'
+\echo 'Creating Attendance Sessions Table...'
+\i tables/attendance_sessions.sql
+
+\echo 'Creating Attendance Records Table...'
+\i tables/attendance_records.sql
+
+\echo 'Creating Attendance Audit Logs Table...'
+\i tables/attendance_audit_logs.sql
+
+\echo '✅ All Database tables created successfully!'
