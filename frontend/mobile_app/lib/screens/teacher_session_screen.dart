@@ -95,35 +95,39 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
       }
 
       Uri sessionUri = Uri.parse('$baseUrl/api/sessions/start');
-      var response = await http.post(
-        sessionUri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'courseId': widget.courseId,
-          'latitude': latitude,
-          'longitude': longitude,
-          'radiusMeters': 100,
-        }),
-      ).timeout(const Duration(seconds: 8));
+      var response = await http
+          .post(
+            sessionUri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'courseId': widget.courseId,
+              'latitude': latitude,
+              'longitude': longitude,
+              'radiusMeters': 100,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 404) {
         sessionUri = Uri.parse('$baseUrl/api/sessions');
-        response = await http.post(
-          sessionUri,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: jsonEncode({
-            'courseId': widget.courseId,
-            'latitude': latitude,
-            'longitude': longitude,
-            'radiusMeters': 100,
-          }),
-        ).timeout(const Duration(seconds: 8));
+        response = await http
+            .post(
+              sessionUri,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode({
+                'courseId': widget.courseId,
+                'latitude': latitude,
+                'longitude': longitude,
+                'radiusMeters': 100,
+              }),
+            )
+            .timeout(const Duration(seconds: 8));
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -143,7 +147,8 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
           final errorData = jsonDecode(response.body);
           msg = errorData['message'] ?? msg;
         } catch (_) {
-          msg = '$msg\nResponse: ${response.body.length > 100 ? response.body.substring(0, 100) : response.body}';
+          msg =
+              '$msg\nResponse: ${response.body.length > 100 ? response.body.substring(0, 100) : response.body}';
         }
 
         setState(() {
@@ -481,10 +486,11 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
                             ),
                             AnimatedSwitcher(
                               duration: AppDurations.medium,
-                              transitionBuilder: (child, anim) => ScaleTransition(
+                              transitionBuilder: (child, anim) =>
+                                  ScaleTransition(
                                 scale: anim,
-                                child: FadeTransition(
-                                    opacity: anim, child: child),
+                                child:
+                                    FadeTransition(opacity: anim, child: child),
                               ),
                               child: Text(
                                 '$_checkedInCount',
@@ -503,14 +509,12 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
                       const SizedBox(height: AppSpacing.lg),
 
                       if (_recentAttendees.isNotEmpty) ...[
-                        const SectionHeader(
-                          title: 'Recent Check-ins',
-                          icon: Icons.people_alt_rounded,
-                        ),
+                        const SectionHeader('Recent Check-ins'),
                         const SizedBox(height: AppSpacing.sm),
                         ..._recentAttendees.map((attendee) {
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                            padding:
+                                const EdgeInsets.only(bottom: AppSpacing.sm),
                             child: AppCard(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: AppSpacing.md,

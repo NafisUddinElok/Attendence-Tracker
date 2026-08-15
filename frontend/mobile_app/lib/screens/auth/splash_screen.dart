@@ -15,6 +15,7 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   final _storage = const FlutterSecureStorage();
   late final AnimationController _pulse;
+  late final AnimationController _fadeController;
   late final Animation<double> _fadeIn;
 
   @override
@@ -25,11 +26,12 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
 
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: AppDurations.slow,
+    )..forward();
     _fadeIn = CurvedAnimation(
-      parent: AnimationController(
-        vsync: this,
-        duration: AppDurations.slow,
-      )..forward(),
+      parent: _fadeController,
       curve: Curves.easeOut,
     );
 
@@ -39,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void dispose() {
     _pulse.dispose();
-    _fadeIn.parent.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
@@ -54,7 +56,8 @@ class _SplashScreenState extends State<SplashScreen>
     if (token != null && token.isNotEmpty && role != null) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const RoleSelectionHomeScreen()),
+        MaterialPageRoute(
+            builder: (context) => const RoleSelectionHomeScreen()),
       );
     } else {
       Navigator.pushReplacement(
@@ -89,7 +92,8 @@ class _SplashScreenState extends State<SplashScreen>
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.primaryLight.withValues(alpha: 0.35),
+                                color: AppColors.primaryLight
+                                    .withValues(alpha: 0.35),
                                 blurRadius: 36,
                                 spreadRadius: 4,
                               ),

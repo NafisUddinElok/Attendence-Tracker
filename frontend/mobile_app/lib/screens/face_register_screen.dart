@@ -68,7 +68,8 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
       final face = await _biometricService.detectSingleFace(picture.path);
       if (face == null) {
         setState(() {
-          _statusMessage = 'No face or multiple faces detected. Keep only your face visible.';
+          _statusMessage =
+              'No face or multiple faces detected. Keep only your face visible.';
           _isProcessing = false;
           _currentStep = 0;
         });
@@ -171,8 +172,8 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
       );
     }
 
-    final isError = _statusMessage.contains('Error') ||
-        _statusMessage.contains('No face');
+    final isError =
+        _statusMessage.contains('Error') || _statusMessage.contains('No face');
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -191,11 +192,9 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
                 CameraPreview(_cameraController!),
                 // Pulse frame overlay
                 PulseFrame(
-                  isActive: _isProcessing,
+                  active: _isProcessing,
                   color: _isProcessing ? AppColors.warning : AppColors.success,
-                  size: const Size(260, 340),
-                  borderRadius: 160,
-                  borderWidth: 3,
+                  size: 260,
                 ),
               ],
             ),
@@ -203,9 +202,10 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
           Container(
             padding: const EdgeInsets.fromLTRB(
                 AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.xl)),
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadii.xl)),
               boxShadow: AppShadows.medium,
             ),
             child: Column(
@@ -222,9 +222,7 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: isError
-                        ? AppColors.danger
-                        : AppColors.textPrimary,
+                    color: isError ? AppColors.danger : AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),

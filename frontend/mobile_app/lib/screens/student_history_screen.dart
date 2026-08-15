@@ -120,16 +120,13 @@ class _StudentHistoryScreenState extends State<StudentHistoryScreen> {
                           _buildOverallHeader(
                               _historyList.length, groupedCourses.length),
                           const SizedBox(height: AppSpacing.lg),
-                          const SectionHeader(
-                              title: 'Course-wise Performance',
-                              icon: Icons.bar_chart_rounded),
+                          const SectionHeader('Course-wise Performance'),
                           const SizedBox(height: AppSpacing.sm),
                           ...groupedCourses.entries.map((entry) {
                             const int estimatedTotalClasses = 20;
                             final attendedCount = entry.value.length;
-                            final percentage = (attendedCount /
-                                    estimatedTotalClasses) *
-                                100;
+                            final percentage =
+                                (attendedCount / estimatedTotalClasses) * 100;
                             return _buildCourseCard(
                               courseCode: entry.key,
                               courseTitle:
@@ -140,11 +137,10 @@ class _StudentHistoryScreenState extends State<StudentHistoryScreen> {
                             );
                           }),
                           const SizedBox(height: AppSpacing.lg),
-                          const SectionHeader(
-                              title: 'Recent Check-in Timeline',
-                              icon: Icons.timeline_rounded),
+                          const SectionHeader('Recent Check-in Timeline'),
                           const SizedBox(height: AppSpacing.sm),
-                          ..._historyList.map((item) => _buildTimelineTile(item)),
+                          ..._historyList
+                              .map((item) => _buildTimelineTile(item)),
                         ],
                       ),
       ),

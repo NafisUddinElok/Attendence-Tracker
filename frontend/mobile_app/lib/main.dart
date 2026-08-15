@@ -6,7 +6,6 @@ import 'screens/courses/teacher_courses_screen.dart';
 import 'screens/face_register_screen.dart';
 import 'screens/student_attendance_screen.dart';
 import 'screens/student_history_screen.dart';
-import 'screens/teacher_report_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/app_config.dart';
 
@@ -42,7 +41,7 @@ class RoleSelectionHomeScreen extends StatelessWidget {
             child: GradientHeroCard(
               gradient: AppGradients.primaryDeep,
               padding: const EdgeInsets.fromLTRB(20, 56, 20, 28),
-              radius: 0,
+              radius: BorderRadius.zero,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -53,16 +52,20 @@ class RoleSelectionHomeScreen extends StatelessWidget {
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.dns_rounded, color: Colors.white),
+                            icon: const Icon(Icons.dns_rounded,
+                                color: Colors.white),
                             tooltip: 'Server IP Settings',
-                            onPressed: () => AppConfig.showServerConfigDialog(context),
+                            onPressed: () =>
+                                AppConfig.showServerConfigDialog(context),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.account_circle_outlined, color: Colors.white),
+                            icon: const Icon(Icons.account_circle_outlined,
+                                color: Colors.white),
                             tooltip: 'My Profile & Security',
                             onPressed: () => Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                              MaterialPageRoute(
+                                  builder: (context) => const ProfileScreen()),
                             ),
                           ),
                         ],
@@ -72,7 +75,8 @@ class RoleSelectionHomeScreen extends StatelessWidget {
                   const SizedBox(height: AppSpacing.lg),
                   const Text(
                     'Shahjalal University of\nScience & Technology',
-                    style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+                    style: TextStyle(
+                        color: Colors.white70, fontSize: 14, height: 1.4),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   const Text(
@@ -87,7 +91,8 @@ class RoleSelectionHomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(AppRadii.pill),
@@ -95,11 +100,15 @@ class RoleSelectionHomeScreen extends StatelessWidget {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.verified_user_outlined, size: 14, color: Colors.white),
+                        Icon(Icons.verified_user_outlined,
+                            size: 14, color: Colors.white),
                         SizedBox(width: 6),
                         Text(
                           'Face · Geofence · TOTP QR',
-                          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -108,9 +117,9 @@ class RoleSelectionHomeScreen extends StatelessWidget {
               ),
             ),
           ),
-
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, AppSpacing.lg),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, AppSpacing.lg, AppSpacing.md, AppSpacing.lg),
             sliver: SliverList.list(
               children: [
                 const SectionHeader('Instructor & Faculty Portal'),
@@ -118,10 +127,12 @@ class RoleSelectionHomeScreen extends StatelessWidget {
                   gradient: AppGradients.teacher,
                   icon: Icons.class_outlined,
                   title: 'Manage Courses & Sessions',
-                  subtitle: 'Create courses, start live QR sessions, view reports',
+                  subtitle:
+                      'Create courses, start live QR sessions, view reports',
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const TeacherCoursesScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => const TeacherCoursesScreen()),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
@@ -133,7 +144,8 @@ class RoleSelectionHomeScreen extends StatelessWidget {
                   subtitle: 'Enroll in courses, view enrolled classes or drop',
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const StudentCoursesScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => const StudentCoursesScreen()),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -144,7 +156,8 @@ class RoleSelectionHomeScreen extends StatelessWidget {
                   subtitle: 'Face scan, eye-blink liveness, dynamic QR scanner',
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const StudentAttendanceScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => const StudentAttendanceScreen()),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -156,10 +169,12 @@ class RoleSelectionHomeScreen extends StatelessWidget {
                   ),
                   icon: Icons.bar_chart_rounded,
                   title: 'My Attendance & 75% Eligibility',
-                  subtitle: 'Collegiate, non-collegiate status & check-in timeline',
+                  subtitle:
+                      'Collegiate, non-collegiate status & check-in timeline',
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const StudentHistoryScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => const StudentHistoryScreen()),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -174,7 +189,8 @@ class RoleSelectionHomeScreen extends StatelessWidget {
                   subtitle: 'Bind your phone UUID and 192-D face embedding',
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const FaceRegisterScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => const FaceRegisterScreen()),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -201,7 +217,8 @@ class _Brand extends StatelessWidget {
             color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(AppRadii.sm),
           ),
-          child: const Icon(Icons.school_rounded, color: Colors.white, size: 22),
+          child:
+              const Icon(Icons.school_rounded, color: Colors.white, size: 22),
         ),
         const SizedBox(width: AppSpacing.sm),
         const Text(
@@ -272,12 +289,14 @@ class _PortalCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white70),
+              const Icon(Icons.arrow_forward_ios,
+                  size: 14, color: Colors.white70),
             ],
           ),
         ),
@@ -302,13 +321,15 @@ class _SecurityNote extends StatelessWidget {
               color: Colors.white,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.shield_outlined, color: AppColors.primary, size: 20),
+            child: const Icon(Icons.shield_outlined,
+                color: AppColors.primary, size: 20),
           ),
           const SizedBox(width: AppSpacing.md),
           const Expanded(
             child: Text(
               '5-step verification keeps every check-in accountable: TOTP token, GPS fence, mock-location guard, hardware binding, and face similarity.',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+              style: TextStyle(
+                  fontSize: 12, color: AppColors.textSecondary, height: 1.4),
             ),
           ),
         ],

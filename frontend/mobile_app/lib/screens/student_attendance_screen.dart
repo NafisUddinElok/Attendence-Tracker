@@ -17,7 +17,8 @@ class StudentAttendanceScreen extends StatefulWidget {
   const StudentAttendanceScreen({super.key});
 
   @override
-  State<StudentAttendanceScreen> createState() => _StudentAttendanceScreenState();
+  State<StudentAttendanceScreen> createState() =>
+      _StudentAttendanceScreenState();
 }
 
 class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
@@ -229,11 +230,12 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
           // Step progress strip
           Container(
             color: AppColors.primaryDark,
-            padding:
-                const EdgeInsets.symmetric(vertical: AppSpacing.md, horizontal: AppSpacing.lg),
+            padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.md, horizontal: AppSpacing.lg),
             child: StepIndicator(
               labels: _steps,
-              activeIndex: _currentStep == VerificationStep.failed ? 0 : _displayStep,
+              activeIndex:
+                  _currentStep == VerificationStep.failed ? 0 : _displayStep,
             ),
           ),
 
@@ -242,9 +244,10 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
           // Bottom Control Card
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.xl)),
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadii.xl)),
               boxShadow: AppShadows.medium,
             ),
             child: Column(
@@ -278,8 +281,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
                     _errorMessage,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        color: AppColors.danger,
-                        fontWeight: FontWeight.w700),
+                        color: AppColors.danger, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   PrimaryButton(
@@ -319,19 +321,19 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   Widget _buildMainView() {
     switch (_currentStep) {
       case VerificationStep.faceScan:
-        if (_cameraController == null || !_cameraController!.value.isInitialized) {
-          return const Center(child: CircularProgressIndicator(color: Colors.white));
+        if (_cameraController == null ||
+            !_cameraController!.value.isInitialized) {
+          return const Center(
+              child: CircularProgressIndicator(color: Colors.white));
         }
         return Stack(
           alignment: Alignment.center,
           children: [
             CameraPreview(_cameraController!),
             PulseFrame(
-              isActive: _isProcessingFrame,
+              active: _isProcessingFrame,
               color: _isProcessingFrame ? AppColors.warning : AppColors.success,
-              size: const Size(250, 320),
-              borderRadius: 150,
-              borderWidth: 3,
+              size: 250,
             ),
           ],
         );
@@ -387,7 +389,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
                 ),
                 child: const Icon(Icons.check_rounded,
                     color: Colors.white, size: 64),
-              },
+              ),
               const SizedBox(height: AppSpacing.md),
               Text(
                 _statusMessage,
@@ -417,7 +419,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
                 ),
                 child: const Icon(Icons.cancel_rounded,
                     color: Colors.white, size: 64),
-              },
+              ),
               const SizedBox(height: AppSpacing.md),
               const Text(
                 'Verification Failed',

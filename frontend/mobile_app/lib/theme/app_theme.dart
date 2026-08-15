@@ -184,9 +184,11 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
-        labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        labelStyle:
+            const TextStyle(color: AppColors.textSecondary, fontSize: 14),
         prefixIconColor: AppColors.textMuted,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.sm),
@@ -239,7 +241,8 @@ class AppTheme {
         unselectedLabelColor: Colors.white70,
         indicatorColor: Colors.white,
         labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+        unselectedLabelStyle:
+            TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.border,
@@ -275,6 +278,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget> actions;
   final LinearGradient gradient;
   final bool showBackButton;
+  final PreferredSizeWidget? bottom;
 
   const GradientAppBar({
     super.key,
@@ -283,10 +287,13 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.actions = const [],
     this.gradient = AppGradients.primary,
     this.showBackButton = false,
+    this.bottom,
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 4);
+  Size get preferredSize => Size.fromHeight(
+        kToolbarHeight + 4 + (bottom?.preferredSize.height ?? 0),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -294,30 +301,36 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
       decoration: BoxDecoration(gradient: gradient),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 4, bottom: 4),
-          child: Row(
-            children: [
-              if (showBackButton)
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                ),
-              if (leading != null) leading!,
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 4),
+              child: Row(
+                children: [
+                  if (showBackButton)
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                    ),
+                  if (leading != null) leading!,
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
                   ),
-                ),
+                  ...actions,
+                ],
               ),
-              ...actions,
-            ],
-          ),
+            ),
+            if (bottom != null) bottom!,
+          ],
         ),
       ),
     );
@@ -345,9 +358,10 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = radius ?? BorderRadius.circular(AppRadii.md);
     final shape = BoxDecoration(
       color: background ?? AppColors.surface,
-      borderRadius: BorderRadius.circular(radius ?? AppRadii.md),
+      borderRadius: r,
       border: Border.all(color: AppColors.border),
       boxShadow: shadow ?? AppShadows.soft,
     );
@@ -359,7 +373,7 @@ class AppCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(radius ?? AppRadii.md),
+        borderRadius: r,
         child: DecoratedBox(decoration: shape, child: body),
       ),
     );
@@ -388,7 +402,7 @@ class GradientHeroCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         gradient: gradient,
-        borderRadius: BorderRadius.circular(radius ?? AppRadii.lg),
+        borderRadius: radius ?? BorderRadius.circular(AppRadii.lg),
         boxShadow: AppShadows.brand,
       ),
       child: DefaultTextStyle.merge(
@@ -430,7 +444,8 @@ class PrimaryButton extends StatelessWidget {
         ? const SizedBox(
             width: 22,
             height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+            child: CircularProgressIndicator(
+                strokeWidth: 2.4, color: Colors.white),
           )
         : Row(
             mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
@@ -452,25 +467,27 @@ class PrimaryButton extends StatelessWidget {
             ],
           );
 
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(AppRadii.sm),
-    );
+    final radius = BorderRadius.circular(AppRadii.sm);
+    final shape = RoundedRectangleBorder(borderRadius: radius);
 
     final btn = gradient != null
         ? Container(
             height: height,
             decoration: BoxDecoration(
               gradient: disabled
-                  ? LinearGradient(colors: [bg.withValues(alpha: 0.5), bg.withValues(alpha: 0.5)])
+                  ? LinearGradient(colors: [
+                      bg.withValues(alpha: 0.5),
+                      bg.withValues(alpha: 0.5)
+                    ])
                   : gradient,
-              borderRadius: shape.borderRadius,
+              borderRadius: radius,
               boxShadow: disabled ? null : AppShadows.brand,
             ),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
                 onTap: disabled ? null : onPressed,
-                borderRadius: shape.borderRadius,
+                borderRadius: radius,
                 child: Center(child: child),
               ),
             ),
@@ -516,7 +533,8 @@ class GhostButton extends StatelessWidget {
     final btn = OutlinedButton.icon(
       onPressed: onPressed,
       icon: icon != null ? Icon(icon, size: 18, color: color) : null,
-      label: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+      label: Text(label,
+          style: TextStyle(color: color, fontWeight: FontWeight.w600)),
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
         side: BorderSide(color: color.withValues(alpha: 0.4)),
@@ -579,7 +597,9 @@ class SectionHeader extends StatelessWidget {
   final String text;
   final EdgeInsetsGeometry padding;
 
-  const SectionHeader(this.text, {super.key, this.padding = const EdgeInsets.symmetric(vertical: AppSpacing.sm)});
+  const SectionHeader(this.text,
+      {super.key,
+      this.padding = const EdgeInsets.symmetric(vertical: AppSpacing.sm)});
 
   @override
   Widget build(BuildContext context) {
@@ -754,7 +774,8 @@ class PulseFrame extends StatefulWidget {
   State<PulseFrame> createState() => _PulseFrameState();
 }
 
-class _PulseFrameState extends State<PulseFrame> with SingleTickerProviderStateMixin {
+class _PulseFrameState extends State<PulseFrame>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
@@ -801,7 +822,8 @@ class BrandBadge extends StatelessWidget {
   final Color color;
   final IconData? icon;
 
-  const BrandBadge({super.key, required this.label, required this.color, this.icon});
+  const BrandBadge(
+      {super.key, required this.label, required this.color, this.icon});
 
   @override
   Widget build(BuildContext context) {

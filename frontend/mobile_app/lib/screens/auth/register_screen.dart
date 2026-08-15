@@ -37,7 +37,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _isStudent ? AppColors.primary : AppColors.teacherPrimary;
 
   final List<String> _sustDepartments = [
-    'IPE', 'CSE', 'SWE', 'EEE', 'ME', 'CEE', 'PME', 'FET', 'CHE', 'PHY', 'MAT',
+    'IPE',
+    'CSE',
+    'SWE',
+    'EEE',
+    'ME',
+    'CEE',
+    'PME',
+    'FET',
+    'CHE',
+    'PHY',
+    'MAT',
     'STA'
   ];
 
@@ -74,11 +84,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         payload['designation'] = _designationController.text.trim();
       }
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/auth/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 8));
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/auth/register'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 8));
 
       final data = jsonDecode(response.body);
 
@@ -148,7 +160,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                   child: AppCard(
                     padding: const EdgeInsets.all(AppSpacing.lg),
                     child: Form(
@@ -227,10 +240,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           if (_errorMessage != null)
                             Container(
                               padding: const EdgeInsets.all(AppSpacing.md),
-                              margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                              margin:
+                                  const EdgeInsets.only(bottom: AppSpacing.md),
                               decoration: BoxDecoration(
                                 color: AppColors.dangerLight,
-                                borderRadius: BorderRadius.circular(AppRadii.sm),
+                                borderRadius:
+                                    BorderRadius.circular(AppRadii.sm),
                               ),
                               child: Text(_errorMessage!,
                                   style: const TextStyle(
@@ -242,13 +257,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             textInputAction: TextInputAction.next,
                             decoration: InputDecoration(
                               labelText: 'Full Name',
-                              prefixIcon: Icon(Icons.badge_outlined,
-                                  color: _roleColor),
+                              prefixIcon:
+                                  Icon(Icons.badge_outlined, color: _roleColor),
                             ),
-                            validator: (val) => val == null || val.trim().isEmpty
-                                ? 'Enter your full name'
-                                : null,
-                          },
+                            validator: (val) =>
+                                val == null || val.trim().isEmpty
+                                    ? 'Enter your full name'
+                                    : null,
+                          ),
                           const SizedBox(height: AppSpacing.md),
 
                           TextFormField(
@@ -257,12 +273,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             textInputAction: TextInputAction.next,
                             decoration: InputDecoration(
                               labelText: 'Email Address',
-                              prefixIcon: Icon(Icons.email_outlined,
-                                  color: _roleColor),
+                              prefixIcon:
+                                  Icon(Icons.email_outlined, color: _roleColor),
                             ),
-                            validator: (val) => val == null || !val.contains('@')
-                                ? 'Enter a valid email'
-                                : null,
+                            validator: (val) =>
+                                val == null || !val.contains('@')
+                                    ? 'Enter a valid email'
+                                    : null,
                           ),
                           const SizedBox(height: AppSpacing.md),
 
@@ -301,8 +318,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       child: Text(dept),
                                     ))
                                 .toList(),
-                            onChanged: (val) =>
-                                setState(() => _deptController.text = val ?? 'IPE'),
+                            onChanged: (val) => setState(
+                                () => _deptController.text = val ?? 'IPE'),
                           ),
 
                           const SizedBox(height: AppSpacing.md),
@@ -317,9 +334,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 hintText: 'e.g. 2023831005',
                                 prefixIcon: Icon(Icons.numbers_outlined),
                               ),
-                              validator: (val) => val == null || val.trim().isEmpty
-                                  ? 'Registration number is required'
-                                  : null,
+                              validator: (val) =>
+                                  val == null || val.trim().isEmpty
+                                      ? 'Registration number is required'
+                                      : null,
                             ),
                             const SizedBox(height: AppSpacing.md),
                             TextFormField(
@@ -330,9 +348,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 hintText: 'e.g. 2022-23',
                                 prefixIcon: Icon(Icons.calendar_month_outlined),
                               ),
-                              validator: (val) => val == null || val.trim().isEmpty
-                                  ? 'Session is required'
-                                  : null,
+                              validator: (val) =>
+                                  val == null || val.trim().isEmpty
+                                      ? 'Session is required'
+                                      : null,
                             ),
                           ],
 
@@ -345,9 +364,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 hintText: 'e.g. EMP-101',
                                 prefixIcon: Icon(Icons.badge_outlined),
                               ),
-                              validator: (val) => val == null || val.trim().isEmpty
-                                  ? 'Teacher ID is required'
-                                  : null,
+                              validator: (val) =>
+                                  val == null || val.trim().isEmpty
+                                      ? 'Teacher ID is required'
+                                      : null,
                             ),
                             const SizedBox(height: AppSpacing.md),
                             TextFormField(
@@ -358,9 +378,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 hintText: 'e.g. Assistant Professor',
                                 prefixIcon: Icon(Icons.work_outline),
                               ),
-                              validator: (val) => val == null || val.trim().isEmpty
-                                  ? 'Designation is required'
-                                  : null,
+                              validator: (val) =>
+                                  val == null || val.trim().isEmpty
+                                      ? 'Designation is required'
+                                      : null,
                             ),
                           ],
 
