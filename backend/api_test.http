@@ -13,11 +13,11 @@ Content-Type: application/json
 
 {
   "role": "TEACHER",
-  "fullName": "Dr. Ahmed Khan",
-  "email": "ahmed@teacher.sust.edu",
+  "fullName": "mahfuzur rahman emon",
+  "email": "emon-iict@teacher.sust.edu",
   "password": "password123",
-  "code": "EMP-101",
-  "department": "IPE",
+  "code": "SWE-150",
+  "department": "SWE",
   "designation": "Associate Professor"
 }
 
@@ -30,7 +30,7 @@ Content-Type: application/json
 
 {
   "role": "TEACHER",
-  "email": "ahmed@teacher.sust.edu",
+  "email": "emon-iict@teacher.sust.edu",
   "password": "password123"
 }
 
@@ -43,9 +43,9 @@ Content-Type: application/json
 Authorization: Bearer {{teacherLogin.response.body.token}}
 
 {
-  "courseCode": "IPE-301",
-  "title": "Supply Chain Management",
-  "department": "IPE"
+  "courseCode": "SWE-150",
+  "title": "Flutter project",
+  "department": "SWE"
 }
 
 ### -------------------------------------------------------------
@@ -56,11 +56,11 @@ Content-Type: application/json
 
 {
   "role": "STUDENT",
-  "fullName": "Muhammad Nafis",
-  "email": "nafis@student.sust.edu",
+  "fullName": "Muhammad Nafis Uddin",
+  "email": "2023831005@student.sust.edu",
   "password": "password123",
-  "code": "2023831005",
-  "department": "IPE",
+  "code": "2023831061",
+  "department": "SWE",
   "session": "2023-24"
 }
 
@@ -73,7 +73,7 @@ Content-Type: application/json
 
 {
   "role": "STUDENT",
-  "email": "nafis@student.sust.edu",
+  "email": "2023831005@student.sust.edu",
   "password": "password123"
 }
 
@@ -98,7 +98,7 @@ Authorization: Bearer {{teacherLogin.response.body.token}}
 
 {
   "courseId": "{{createCourse.response.body.course.id}}",
-  "title": "Supply Chain Class 01",
+  "title": "Flutter project class 01",
   "centerLat": 24.9172,
   "centerLng": 91.8319,
   "radiusMeters": 50,
@@ -121,7 +121,7 @@ Authorization: Bearer {{studentLogin.response.body.token}}
 {
   "sessionId": "{{startAttendanceSession.response.body.session.id}}",
   "token": "TEST_INVALID_TOKEN",
-  "deviceId": "DEVICE_ANDROID_UUID_99182",
+  "deviceId": "DEVICE_ANDROID_UUID_99183",
   "lat": 24.91721,
   "lng": 91.83191,
   "isMockLocation": false,
@@ -134,3 +134,33 @@ Authorization: Bearer {{studentLogin.response.body.token}}
 ### -------------------------------------------------------------
 GET {{baseUrl}}/api/attendance/export-csv/{{createCourse.response.body.course.id}}
 Authorization: Bearer {{teacherLogin.response.body.token}}
+
+
+
+### -------------------------------------------------------------
+### 12. Student: Register Face Biometrics & Lock Device
+### -------------------------------------------------------------
+# @name registerBiometrics
+POST {{baseUrl}}/api/auth/register-biometrics
+Content-Type: application/json
+Authorization: Bearer {{studentLogin.response.body.token}}
+
+{
+  "deviceId": "DEVICE_MAC_TEST_UUID_001",
+  "faceEmbedding": [
+    0.045, -0.123, 0.789, 0.012, -0.567, 0.234, 0.891, -0.045,
+    0.112, 0.456, -0.321, 0.654, -0.098, 0.876, -0.543, 0.210
+  ]
+}
+
+### -------------------------------------------------------------
+### 13. Student: Attempt Registration from DIFFERENT Device (Should FAIL 403)
+### -------------------------------------------------------------
+POST {{baseUrl}}/api/auth/register-biometrics
+Content-Type: application/json
+Authorization: Bearer {{studentLogin.response.body.token}}
+
+{
+  "deviceId": "DEVICE_HACKER_ATTEMPT_UUID_999",
+  "faceEmbedding": [0.045, -0.123, 0.789]
+}

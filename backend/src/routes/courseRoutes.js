@@ -3,52 +3,14 @@ const router = express.Router();
 const courseController = require('../controllers/courseController');
 const { protect, authorizeRoles } = require('../middlewares/authMiddleware');
 
-// All course routes require login
-router.use(protect);
+// Unified & Role-protected Course Routes
+router.post('/', protect, authorizeRoles('TEACHER'), courseController.createCourse);
+router.get('/', protect, courseController.getCourses);
+router.delete('/:id', protect, authorizeRoles('TEACHER'), courseController.deleteCourse);
+router.get('/:id/students', protect, authorizeRoles('TEACHER'), courseController.getEnrolledStudents);
 
-// ---------------- TEACHER ROUTES ----------------
-router.post(
-  '/',
-  authorizeRoles('TEACHER'),
-  courseController.createCourse
-);
-
-router.get(
-  '/teacher',
-  authorizeRoles('TEACHER'),
-  courseController.getTeacherCourses
-);
-
-router.delete(
-  '/:id',
-  authorizeRoles('TEACHER'),
-  courseController.deleteCourse
-);
-
-// ---------------- STUDENT ROUTES ----------------
-router.get(
-  '/student',
-  authorizeRoles('STUDENT'),
-  courseController.getStudentCourses
-);
-
-router.post(
-  '/enroll',
-  authorizeRoles('STUDENT'),
-  courseController.enrollCourse
-);
-
-router.delete(
-  '/enroll/:courseId',
-  authorizeRoles('STUDENT'),
-  courseController.unenrollCourse
-);
-
-// Teacher route to view/search enrolled students inside a course
-router.get(
-  '/:id/students',
-  authorizeRoles('TEACHER'),
-  courseController.getEnrolledStudents
-);
+// Student Specific Routes
+router.post('/enroll', protect, authorizeRoles('STUDENT'), courseController.enrollCourse);
+router.delete('/unenroll/:courseId', protect, authorizeRoles('STUDENT'), courseController.unenrollCourse);
 
 module.exports = router;

@@ -133,3 +133,56 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: 'Server error during login' });
   }
 };
+
+
+// -------------------------------------------------------------
+// STUDENT: Register Device ID & Face Embedding Vector
+// -------------------------------------------------------------
+exports.registerBiometrics = async (req, res) => {
+  const { deviceId, faceEmbedding } = req.body;
+  const studentId = req.user.id;
+
+  if (!deviceId || typeof deviceId !== 'string' || deviceId.trim() === '') {
+    return res.status(400).json({ message: 'A valid deviceId is required.' });
+  }
+
+  if (!Array.isArray(faceEmbedding) || faceEmbedding.length === 0) {
+    return res.status(400).json({ message: 'A valid faceEmbedding float array is required.' });
+  }
+
+  try {
+    // Check if student's device is already locked to another phone
+    const existing = await db.query(
+      'SELECT device_id, is_device_locked FROM students WHERE id = $1',
+      [studentId]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ message: 'Student record not found.' });
+    }
+
+    if (existing.rows[0].is_device_locked && existing.rows[0].device_id !== deviceId) {
+      return res.status(403).json({
+        message: 'Device is already locked. Contact department admin to reset your registered device.',
+      });
+    }
+
+    // Save Face Embedding (as JSONB) and Device ID
+    await db.query(
+      `UPDATE students 
+       SET device_id = $1, 
+           face_embedding = $2, 
+           is_device_locked = TRUE 
+       WHERE id = $3`,
+      [deviceId.trim(), JSON.stringify(faceEmbedding), studentId]
+    );
+
+    res.status(200).json({
+      message: 'Face biometrics and primary device registered successfully!',
+      isDeviceLocked: true,
+    });
+  } catch (error) {
+    console.error('Register Biometrics Error:', error);
+    res.status(500).json({ message: 'Server error while saving biometrics.' });
+  }
+};

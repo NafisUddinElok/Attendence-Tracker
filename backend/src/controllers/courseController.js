@@ -1,9 +1,8 @@
 const db = require('../config/db');
 const { isValidUUID } = require('../utils/securityUtils');
 
-
 // -------------------------------------------------------------
-// TEACHER: Create a New Course
+// TEACHER: Create a New Course (or return existing)
 // -------------------------------------------------------------
 exports.createCourse = async (req, res) => {
   const { courseCode, title, department } = req.body;
@@ -14,14 +13,16 @@ exports.createCourse = async (req, res) => {
   }
 
   try {
-    // Check if teacher already has this course code
     const existing = await db.query(
-      'SELECT id FROM courses WHERE teacher_id = $1 AND course_code = $2',
+      'SELECT * FROM courses WHERE teacher_id = $1 AND course_code = $2',
       [teacherId, courseCode.toUpperCase().trim()]
     );
 
     if (existing.rows.length > 0) {
-      return res.status(400).json({ message: 'You already created a course with this code.' });
+      return res.status(200).json({
+        message: 'Course already exists',
+        course: existing.rows[0],
+      });
     }
 
     const result = await db.query(
@@ -38,6 +39,17 @@ exports.createCourse = async (req, res) => {
   } catch (error) {
     console.error('Create Course Error:', error);
     res.status(500).json({ message: 'Server error while creating course.' });
+  }
+};
+
+// -------------------------------------------------------------
+// UNIFIED GET: Auto routes based on role (Teacher / Student)
+// -------------------------------------------------------------
+exports.getCourses = async (req, res) => {
+  if (req.user.role === 'TEACHER') {
+    return exports.getTeacherCourses(req, res);
+  } else {
+    return exports.getStudentCourses(req, res);
   }
 };
 
@@ -98,7 +110,7 @@ exports.getTeacherCourses = async (req, res) => {
 };
 
 // -------------------------------------------------------------
-// STUDENT: Get All Courses with `is_enrolled` status
+// STUDENT: Get All Courses with is_enrolled status
 // -------------------------------------------------------------
 exports.getStudentCourses = async (req, res) => {
   const studentId = req.user.id;
@@ -145,13 +157,11 @@ exports.enrollCourse = async (req, res) => {
   }
 
   try {
-    // Check if course exists
     const courseCheck = await db.query('SELECT id FROM courses WHERE id = $1', [courseId]);
     if (courseCheck.rows.length === 0) {
       return res.status(404).json({ message: 'Course not found.' });
     }
 
-    // Insert into enrollments
     await db.query(
       'INSERT INTO enrollments (student_id, course_id) VALUES ($1, $2)',
       [studentId, courseId]
@@ -159,7 +169,7 @@ exports.enrollCourse = async (req, res) => {
 
     res.status(201).json({ message: 'Enrolled in course successfully.' });
   } catch (error) {
-    if (error.code === '23505') { // Unique constraint violation (already enrolled)
+    if (error.code === '23505') {
       return res.status(400).json({ message: 'You are already enrolled in this course.' });
     }
     console.error('Enroll Course Error:', error);
@@ -197,10 +207,9 @@ exports.unenrollCourse = async (req, res) => {
 exports.getEnrolledStudents = async (req, res) => {
   const { id: courseId } = req.params;
   const teacherId = req.user.id;
-  const search = req.query.search || ''; // Query param: ?search=2023831005 or ?search=Nafis
+  const search = req.query.search || '';
 
   try {
-    // 1. Verify course belongs to this teacher
     const courseCheck = await db.query(
       'SELECT id, course_code, title FROM courses WHERE id = $1 AND teacher_id = $2',
       [courseId, teacherId]
@@ -210,7 +219,6 @@ exports.getEnrolledStudents = async (req, res) => {
       return res.status(404).json({ message: 'Course not found or unauthorized.' });
     }
 
-    // 2. Fetch enrolled students with optional search
     const query = `
       SELECT 
         s.id,
