@@ -31,6 +31,8 @@ dependencies:
   google_mlkit_face_detection: ^0.11.0
   tflite_flutter: ^0.12.1
   image: ^4.2.0
+  flutter_ble_peripheral: ^2.1.1
+  flutter_blue_plus: ^2.3.12
   # file_picker: ^8.0.0
 
 

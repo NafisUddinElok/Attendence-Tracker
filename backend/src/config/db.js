@@ -13,6 +13,11 @@ const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   database: process.env.DB_NAME,
+  // Managed Postgres on Render/Railway/etc. requires SSL, but local
+  // docker/dev Postgres usually doesn't have a cert configured — so this
+  // is opt-in via DB_SSL=true (set it in your cloud provider's env vars)
+  // rather than always-on, which would break local development.
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
 
 // Explicitly test connection on app startup

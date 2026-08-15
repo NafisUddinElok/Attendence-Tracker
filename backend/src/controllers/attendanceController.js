@@ -161,6 +161,7 @@ exports.verifyAttendance = async (req, res) => {
     isMockLocation,
     livenessPassed,
     faceEmbedding,
+    scannedBleUuid,
   } = req.body;
 
   const studentId = req.user.id;
@@ -227,6 +228,33 @@ exports.verifyAttendance = async (req, res) => {
       });
     }
 
+    // 4b. BLE PROXIMITY CHECK (optional per-session, harder to spoof than GPS)
+    // Only enforced when the teacher opted into BLE for this session
+    // (session.ble_uuid is set). If the teacher's device couldn't
+    // advertise BLE, the session simply has no ble_uuid and this check
+    // is skipped — GPS + TOTP + device + face still all apply.
+    if (session.ble_uuid) {
+      if (
+        !scannedBleUuid ||
+        scannedBleUuid.toString().toUpperCase() !== session.ble_uuid.toString().toUpperCase()
+      ) {
+        try {
+          await db.query(
+            `INSERT INTO attendance_audit_logs
+               (session_id, student_id, device_id, attempted_lat, attempted_lng, is_mock_location, status, failure_reason)
+             VALUES ($1, $2, $3, $4, $5, $6, 'FAILED_BLE', 'Teacher Bluetooth beacon not detected nearby')`,
+            [sessionId, studentId, deviceId, lat, lng, !!isMockLocation]
+          );
+        } catch (auditError) {
+          console.error('Audit Log Error (non-fatal):', auditError);
+        }
+
+        return res.status(403).json({
+          message: "Couldn't detect the teacher's Bluetooth beacon nearby. Move closer to the classroom and try again.",
+        });
+      }
+    }
+
     // 5. HARDWARE DEVICE BINDING
     const studentResult = await db.query(
       'SELECT id, full_name, registration_no, device_id, is_device_locked, face_embedding FROM students WHERE id = $1',
@@ -247,19 +275,37 @@ exports.verifyAttendance = async (req, res) => {
 
     // 6. FACE BIOMETRIC EMBEDDING (COSINE SIMILARITY >= 0.75)
     if (!livenessPassed) {
-      return res.status(403).json({ message: 'Face liveness check failed.' });
+      return res.status(403).json({
+        message: 'Liveness check failed. Make sure both eyes are open and you\'re looking straight at the camera, then try again.',
+      });
     }
+
+    // Tracked for the audit log (teacher/admin-facing debugging) but never
+    // shown to the student directly — a raw similarity percentage is
+    // meaningless to them and just invites students to "aim for a number".
+    let similarityScore = null;
 
     if (student.face_embedding && Array.isArray(faceEmbedding)) {
       const registeredEmbedding = typeof student.face_embedding === 'string'
         ? JSON.parse(student.face_embedding)
         : student.face_embedding;
 
-      const similarity = calculateCosineSimilarity(registeredEmbedding, faceEmbedding);
+      similarityScore = calculateCosineSimilarity(registeredEmbedding, faceEmbedding);
 
-      if (similarity < 0.75) {
+      if (similarityScore < 0.75) {
+        try {
+          await db.query(
+            `INSERT INTO attendance_audit_logs
+               (session_id, student_id, device_id, attempted_lat, attempted_lng, is_mock_location, similarity_score, status, failure_reason)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'FAILED_FACE', 'Face similarity below threshold')`,
+            [sessionId, studentId, deviceId, lat, lng, !!isMockLocation, similarityScore]
+          );
+        } catch (auditError) {
+          console.error('Audit Log Error (non-fatal):', auditError);
+        }
+
         return res.status(403).json({
-          message: `Face verification failed (Similarity: ${(similarity * 100).toFixed(1)}%).`,
+          message: "Face didn't match your registered profile. Make sure you're in good lighting, remove any mask/sunglasses, and look straight at the camera, then try again.",
         });
       }
     }
@@ -278,7 +324,7 @@ exports.verifyAttendance = async (req, res) => {
         `INSERT INTO attendance_audit_logs
            (session_id, student_id, device_id, attempted_lat, attempted_lng, is_mock_location, similarity_score, status)
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'SUCCESS')`,
-        [sessionId, studentId, deviceId, lat, lng, !!isMockLocation, null]
+        [sessionId, studentId, deviceId, lat, lng, !!isMockLocation, similarityScore]
       );
     } catch (auditError) {
       console.error('Audit Log Error (non-fatal):', auditError);

@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:flutter_ble_peripheral/flutter_ble_peripheral.dart';
 import '../services/app_config.dart';
 
 class TeacherSessionScreen extends StatefulWidget {
@@ -36,13 +37,35 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
   int _checkedInCount = 0;
   final List<Map<String, dynamic>> _recentAttendees = [];
 
+  // Bluetooth proximity check — opt-in, off by default (see note in
+  // _startLiveSession: not every teacher device can reliably advertise
+  // BLE, so this stays a per-session choice rather than forced on).
+  bool _bleEnabled = false;
+  bool _bleAdvertising = false;
+  final FlutterBlePeripheral _blePeripheral = FlutterBlePeripheral();
+
+  // Geofence radius — remembered per-course so a teacher who always
+  // teaches in the same room doesn't have to redo this every class.
+  // GPS center itself is already auto-detected (no manual lat/lng entry).
+  double _radiusMeters = 100;
+  String get _radiusStorageKey => 'geofence_radius_${widget.courseId}';
+
   Timer? _totpTimer;
   io.Socket? _socket;
 
   @override
   void initState() {
     super.initState();
+    _loadSavedRadius();
     _startLiveSession();
+  }
+
+  Future<void> _loadSavedRadius() async {
+    final saved = await _storage.read(key: _radiusStorageKey);
+    if (saved != null && mounted) {
+      final parsed = double.tryParse(saved);
+      if (parsed != null) setState(() => _radiusMeters = parsed);
+    }
   }
 
   /// 1. Initialize GPS Lock & Start Backend Session
@@ -112,7 +135,8 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
           'courseId': widget.courseId,
           'latitude': latitude,
           'longitude': longitude,
-          'radiusMeters': 100,
+          'radiusMeters': _radiusMeters.round(),
+          'enableBle': _bleEnabled,
         }),
       ).timeout(const Duration(seconds: 8));
 
@@ -129,7 +153,8 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
             'courseId': widget.courseId,
             'latitude': latitude,
             'longitude': longitude,
-            'radiusMeters': 100,
+            'radiusMeters': _radiusMeters.round(),
+            'enableBle': _bleEnabled,
           }),
         ).timeout(const Duration(seconds: 8));
       }
@@ -138,11 +163,45 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         final session = data['session'] ?? data['data'];
+        final String? bleUuid = session['ble_uuid'];
+
+        // If BLE was requested and the backend generated a UUID for this
+        // session, start advertising it now. If advertising fails (device
+        // doesn't support peripheral mode, permission denied, etc.), the
+        // session already requires BLE server-side — rather than leave a
+        // session no student can ever pass, end it and ask the teacher to
+        // retry with the toggle off.
+        if (_bleEnabled && bleUuid != null && bleUuid.isNotEmpty) {
+          try {
+            await _blePeripheral.start(
+              advertiseData: AdvertiseData(
+                serviceUuid: bleUuid,
+                includeDeviceName: false,
+              ),
+            );
+            _bleAdvertising = true;
+          } catch (e) {
+            await _endSessionSilently(session['id'], baseUrl, token);
+            if (mounted) {
+              setState(() {
+                _errorMessage =
+                    "Bluetooth advertising couldn't start on this device ($e).\n\n"
+                    'The session was cancelled automatically. Please retry with '
+                    'Bluetooth proximity check turned off.';
+                _isInitializing = false;
+              });
+            }
+            return;
+          }
+        }
+
         setState(() {
           _sessionId = session['id'];
           _currentQrToken = data['qrToken'] ?? session['id'];
           _isInitializing = false;
         });
+
+        await _storage.write(key: _radiusStorageKey, value: _radiusMeters.round().toString());
 
         _initSocket(baseUrl, _sessionId!);
         _startTotpCountdown();
@@ -273,7 +332,32 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
       ).timeout(const Duration(seconds: 6));
     } catch (_) {}
 
+    await _stopBleAdvertising();
+
     if (mounted) Navigator.pop(context);
+  }
+
+  /// Ends a session without a confirmation dialog — used when BLE
+  /// advertising fails right after session creation, so we don't leave a
+  /// live session behind that requires a beacon nobody is broadcasting.
+  Future<void> _endSessionSilently(String sessionId, String baseUrl, String? token) async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/api/sessions/$sessionId/end'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 6));
+    } catch (_) {}
+  }
+
+  Future<void> _stopBleAdvertising() async {
+    if (!_bleAdvertising) return;
+    try {
+      await _blePeripheral.stop();
+    } catch (_) {}
+    _bleAdvertising = false;
   }
 
   @override
@@ -281,6 +365,7 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
     _totpTimer?.cancel();
     _socket?.disconnect();
     _socket?.dispose();
+    _stopBleAdvertising();
     super.dispose();
   }
 
@@ -311,6 +396,57 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
                   const Text('Initializing Anti-Proxy Engine...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 6),
                   Text('Locking GPS Geofence & Starting Session for ${widget.courseCode}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                  const SizedBox(height: 24),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Classroom radius', style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
+                            Text('${_radiusMeters.round()}m', style: const TextStyle(fontSize: 12, color: Colors.indigo, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        Slider(
+                          value: _radiusMeters,
+                          min: 20,
+                          max: 300,
+                          divisions: 28,
+                          activeColor: Colors.indigo,
+                          onChanged: (val) => setState(() => _radiusMeters = val),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Bluetooth proximity check (experimental — only enable if you\'ve tested BLE works on this device)',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                          ),
+                        ),
+                        Switch(
+                          value: _bleEnabled,
+                          onChanged: (val) => setState(() => _bleEnabled = val),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             )
@@ -358,6 +494,27 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
                           ],
                         ),
                       ),
+                      if (_bleAdvertising) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.bluetooth, color: Colors.indigo, size: 16),
+                              SizedBox(width: 6),
+                              Text(
+                                'BLUETOOTH BEACON BROADCASTING',
+                                style: TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       Text(
                         widget.courseTitle,

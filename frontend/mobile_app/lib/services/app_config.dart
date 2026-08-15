@@ -4,8 +4,16 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class AppConfig {
   static const _storage = FlutterSecureStorage();
   static const String _keyBaseUrl = 'app_base_url';
-  
-  // Default fallback for Android Emulator
+
+  // Once the backend is deployed (see backend/render.yaml), replace this
+  // with the real https:// URL Render/Railway gives you, e.g.
+  // 'https://attendance-tracker-backend.onrender.com'. That single change
+  // is what removes the "everyone must be on my WiFi / re-enter my laptop's
+  // IP every class" problem — after that, this dialog becomes an escape
+  // hatch for local development rather than something students ever touch.
+  static const String productionUrl = 'https://YOUR-APP-NAME.onrender.com';
+
+  // Fallback for Android Emulator during local development.
   static const String defaultUrl = 'http://10.0.2.2:5000';
 
   /// Get the active Base URL
@@ -66,11 +74,16 @@ class AppConfig {
               spacing: 6,
               children: [
                 ActionChip(
-                  label: const Text('Android Emulator', style: TextStyle(fontSize: 11)),
+                  label: const Text('Production (Cloud)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  backgroundColor: Colors.indigo.withValues(alpha: 0.1),
+                  onPressed: () => controller.text = productionUrl,
+                ),
+                ActionChip(
+                  label: const Text('Android Emulator (local dev)', style: TextStyle(fontSize: 11)),
                   onPressed: () => controller.text = 'http://10.0.2.2:5000',
                 ),
                 ActionChip(
-                  label: const Text('Localhost (iOS)', style: TextStyle(fontSize: 11)),
+                  label: const Text('Localhost (local dev)', style: TextStyle(fontSize: 11)),
                   onPressed: () => controller.text = 'http://localhost:5000',
                 ),
               ],
