@@ -15,6 +15,7 @@ services:
     name: attendance-tracker-backend
     runtime: node
     plan: free
+    rootDir: backend
     buildCommand: npm install
     startCommand: npm start
     envVars:
