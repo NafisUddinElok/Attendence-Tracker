@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/device_service.dart';
 import '../services/face_embedding_service.dart';
 import '../services/app_config.dart';
+import '../theme/app_theme.dart';
 
 enum VerificationStep { faceScan, qrScan, verifying, success, failed }
 
@@ -22,11 +23,9 @@ class StudentAttendanceScreen extends StatefulWidget {
 class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   final _storage = const FlutterSecureStorage();
 
-  // Camera & Face Service
   CameraController? _cameraController;
   final FaceEmbeddingService _biometricService = FaceEmbeddingService();
 
-  // Verification State Variables
   VerificationStep _currentStep = VerificationStep.faceScan;
   String _statusMessage = 'Look directly into the camera';
   String _errorMessage = '';
@@ -35,15 +34,29 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   bool _livenessPassed = false;
   bool _isProcessingFrame = false;
 
+  static const _steps = ['Face', 'QR', 'Verify'];
+
+  int get _displayStep {
+    switch (_currentStep) {
+      case VerificationStep.faceScan:
+        return 0;
+      case VerificationStep.qrScan:
+        return 1;
+      case VerificationStep.verifying:
+        return 2;
+      case VerificationStep.success:
+        return 3;
+      case VerificationStep.failed:
+        return 0;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _initFaceCamera();
   }
 
-  // -------------------------------------------------------------
-  // STEP 1 & 2: Front Camera & Face Liveness Verification
-  // -------------------------------------------------------------
   Future<void> _initFaceCamera() async {
     await _biometricService.init();
     final cameras = await availableCameras();
@@ -63,8 +76,9 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   }
 
   Future<void> _captureAndVerifyFace() async {
-    if (_isProcessingFrame || _cameraController == null || !_cameraController!.value.isInitialized) return;
-
+    if (_isProcessingFrame ||
+        _cameraController == null ||
+        !_cameraController!.value.isInitialized) return;
     setState(() {
       _isProcessingFrame = true;
       _statusMessage = 'Analyzing facial biometrics & liveness...';
@@ -73,33 +87,31 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
     try {
       final picture = await _cameraController!.takePicture();
 
-      // 1. Detect single face
       final face = await _biometricService.detectSingleFace(picture.path);
       if (face == null) {
         setState(() {
-          _statusMessage = '⚠️ No face detected or multiple faces in view.';
+          _statusMessage = 'No face detected or multiple faces in view.';
           _isProcessingFrame = false;
         });
         return;
       }
 
-      // 2. Check eyes open quality (Liveness heuristic)
       final leftEye = face.leftEyeOpenProbability ?? 1.0;
       final rightEye = face.rightEyeOpenProbability ?? 1.0;
 
       if (leftEye < 0.5 || rightEye < 0.5) {
         setState(() {
-          _statusMessage = '⚠️ Please open both eyes clearly.';
+          _statusMessage = 'Please open both eyes clearly.';
           _isProcessingFrame = false;
         });
         return;
       }
 
-      // 3. Extract 192D Embedding Vector
-      final embedding = await _biometricService.extractFaceEmbedding(picture.path, face);
+      final embedding =
+          await _biometricService.extractFaceEmbedding(picture.path, face);
       if (embedding == null || embedding.isEmpty) {
         setState(() {
-          _statusMessage = '⚠️ Face vector extraction failed. Try again.';
+          _statusMessage = '⚠️ Face Data extraction failed. Try again.';
           _isProcessingFrame = false;
         });
         return;
@@ -108,14 +120,13 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
       _extractedEmbedding = embedding;
       _livenessPassed = true;
 
-      // Dispose selfie camera before opening QR Scanner
       await _cameraController?.dispose();
       _cameraController = null;
 
       setState(() {
         _currentStep = VerificationStep.qrScan;
         _isProcessingFrame = false;
-        _statusMessage = 'Point camera at Teacher\'s Live QR Code';
+        _statusMessage = "Point camera at Teacher's Live QR Code";
       });
     } catch (e) {
       setState(() {
@@ -125,9 +136,6 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
     }
   }
 
-  // -------------------------------------------------------------
-  // STEP 3, 4 & 5: QR Code Scan + GPS + Hardware Binding Submission
-  // -------------------------------------------------------------
   Future<void> _onQrCodeScanned(BarcodeCapture capture) async {
     if (_currentStep != VerificationStep.qrScan) return;
 
@@ -143,12 +151,10 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
     });
 
     try {
-      // 1. Parse QR JSON Payload { sessionId, token, ts }
       final Map<String, dynamic> qrData = jsonDecode(rawCode);
       final String sessionId = qrData['sessionId'];
       final String token = qrData['token'];
 
-      // 2. Capture Real GPS & Mock Location Status
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -158,10 +164,8 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      // 3. Capture Hardware Device UUID
       final String deviceId = await DeviceService.getDeviceId();
 
-      // 4. Submit to Backend Verification Pipeline
       final baseUrl = await AppConfig.getBaseUrl();
       final jwtToken = await _storage.read(key: 'jwt_token');
       final response = await http.post(
@@ -187,7 +191,8 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
       if (response.statusCode == 200) {
         setState(() {
           _currentStep = VerificationStep.success;
-          _statusMessage = responseBody['message'] ?? 'Attendance marked successfully!';
+          _statusMessage =
+              responseBody['message'] ?? 'Attendance marked successfully!';
         });
       } else {
         setState(() {
@@ -210,45 +215,37 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
     super.dispose();
   }
 
-  // -------------------------------------------------------------
-  // UI BUILD
-  // -------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Mark Attendance'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+      appBar: GradientAppBar(
+        title: 'Mark Attendance',
+        gradient: AppGradients.primaryDeep,
+        showBackButton: true,
       ),
       body: Column(
         children: [
-          // Step Progress Indicator
+          // Step progress strip
           Container(
-            color: Colors.indigo.shade900,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStepBadge('1. Face', _currentStep == VerificationStep.faceScan),
-                const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white54),
-                _buildStepBadge('2. QR Scan', _currentStep == VerificationStep.qrScan),
-                const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white54),
-                _buildStepBadge('3. Verified', _currentStep == VerificationStep.success),
-              ],
+            color: AppColors.primaryDark,
+            padding:
+                const EdgeInsets.symmetric(vertical: AppSpacing.md, horizontal: AppSpacing.lg),
+            child: StepIndicator(
+              labels: _steps,
+              activeIndex: _currentStep == VerificationStep.failed ? 0 : _displayStep,
             ),
           ),
 
-          // Main Viewport Area
           Expanded(child: _buildMainView()),
 
           // Bottom Control Card
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.md),
             decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              color: AppColors.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.xl)),
+              boxShadow: AppShadows.medium,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -256,33 +253,41 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
                 Text(
                   _statusMessage,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary),
                 ),
                 if (_currentStep == VerificationStep.faceScan) ...[
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: _isProcessingFrame ? null : _captureAndVerifyFace,
-                      icon: const Icon(Icons.camera),
-                      label: Text(_isProcessingFrame ? 'Processing...' : 'Verify Face & Proceed'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
+                  const SizedBox(height: AppSpacing.md),
+                  PrimaryButton(
+                    label: _isProcessingFrame
+                        ? 'Processing...'
+                        : 'Verify Face & Proceed',
+                    icon: Icons.camera_alt_rounded,
+                    gradient: AppGradients.primary,
+                    loading: _isProcessingFrame,
+                    expand: true,
+                    height: 52,
+                    onPressed: _captureAndVerifyFace,
                   ),
                 ],
                 if (_currentStep == VerificationStep.failed) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     _errorMessage,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        color: AppColors.danger,
+                        fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
+                  const SizedBox(height: AppSpacing.sm),
+                  PrimaryButton(
+                    label: 'Try Again',
+                    icon: Icons.refresh_rounded,
+                    color: AppColors.danger,
+                    expand: true,
+                    height: 48,
                     onPressed: () {
                       setState(() {
                         _currentStep = VerificationStep.faceScan;
@@ -290,18 +295,17 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
                       });
                       _initFaceCamera();
                     },
-                    child: const Text('Try Again'),
                   ),
                 ],
                 if (_currentStep == VerificationStep.success) ...[
-                  const SizedBox(height: 16),
-                  ElevatedButton(
+                  const SizedBox(height: AppSpacing.md),
+                  PrimaryButton(
+                    label: 'Done & Go Back',
+                    icon: Icons.check_circle_rounded,
+                    gradient: AppGradients.success,
+                    expand: true,
+                    height: 52,
                     onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Done & Go Back'),
                   ),
                 ],
               ],
@@ -312,40 +316,42 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
     );
   }
 
-  Widget _buildStepBadge(String label, bool isActive) {
-    return Text(
-      label,
-      style: TextStyle(
-        color: isActive ? Colors.greenAccent : Colors.white60,
-        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-      ),
-    );
-  }
-
   Widget _buildMainView() {
     switch (_currentStep) {
       case VerificationStep.faceScan:
         if (_cameraController == null || !_cameraController!.value.isInitialized) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: Colors.white));
         }
         return Stack(
           alignment: Alignment.center,
           children: [
             CameraPreview(_cameraController!),
-            Container(
-              width: 250,
-              height: 320,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.greenAccent, width: 3),
-                borderRadius: BorderRadius.circular(150),
-              ),
+            PulseFrame(
+              isActive: _isProcessingFrame,
+              color: _isProcessingFrame ? AppColors.warning : AppColors.success,
+              size: const Size(250, 320),
+              borderRadius: 150,
+              borderWidth: 3,
             ),
           ],
         );
 
       case VerificationStep.qrScan:
-        return MobileScanner(
-          onDetect: _onQrCodeScanned,
+        return Stack(
+          children: [
+            MobileScanner(onDetect: _onQrCodeScanned),
+            // QR frame overlay
+            Center(
+              child: Container(
+                width: 240,
+                height: 240,
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.warning, width: 3),
+                  borderRadius: BorderRadius.circular(AppRadii.lg),
+                ),
+              ),
+            ),
+          ],
         );
 
       case VerificationStep.verifying:
@@ -353,11 +359,14 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: Colors.white),
-              SizedBox(height: 16),
+              CircularProgressIndicator(color: AppColors.warning),
+              SizedBox(height: AppSpacing.md),
               Text(
                 'Running Anti-Proxy Checks...',
-                style: TextStyle(color: Colors.white, fontSize: 16),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -368,20 +377,58 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle, color: Colors.greenAccent, size: 90),
-              const SizedBox(height: 16),
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  gradient: AppGradients.success,
+                  shape: BoxShape.circle,
+                  boxShadow: AppShadows.brand,
+                ),
+                child: const Icon(Icons.check_rounded,
+                    color: Colors.white, size: 64),
+              },
+              const SizedBox(height: AppSpacing.md),
               Text(
                 _statusMessage,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ],
           ),
         );
 
       case VerificationStep.failed:
-        return const Center(
-          child: Icon(Icons.cancel, color: Colors.redAccent, size: 90),
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: AppColors.danger,
+                  shape: BoxShape.circle,
+                  boxShadow: AppShadows.brand,
+                ),
+                child: const Icon(Icons.cancel_rounded,
+                    color: Colors.white, size: 64),
+              },
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                'Verification Failed',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         );
     }
   }

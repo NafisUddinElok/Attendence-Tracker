@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../services/app_config.dart';
 import 'register_screen.dart';
 import '../../main.dart';
+import '../../theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,13 +18,21 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _storage = const FlutterSecureStorage();
 
-  String _selectedRole = 'STUDENT'; // 'STUDENT' or 'TEACHER'
+  String _selectedRole = 'STUDENT';
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isPasswordVisible = false;
   bool _isLoading = false;
   String? _errorMessage;
+
+  bool get _isStudent => _selectedRole == 'STUDENT';
+
+  LinearGradient get _roleGradient =>
+      _isStudent ? AppGradients.primary : AppGradients.teacher;
+
+  Color get _roleColor =>
+      _isStudent ? AppColors.primary : AppColors.teacherPrimary;
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
@@ -34,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final baseUrl = await AppConfig.getBaseUrl(); // 👈 Dynamic Server IP
+      final baseUrl = await AppConfig.getBaseUrl();
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/login'),
@@ -60,7 +69,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Welcome back, ${data['user']['full_name']}!'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
           ),
         );
 
@@ -92,198 +102,237 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text('SUST Attendance Hub'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          // 🌐 Top Right DNS Server IP Button
-          IconButton(
-            icon: const Icon(Icons.dns_rounded),
-            tooltip: 'Configure Server IP',
-            onPressed: () => AppConfig.showServerConfigDialog(context),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Icon(Icons.school_rounded, size: 64, color: Colors.indigo),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Anti-Proxy Attendance System',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Sign in to access your portal',
-                    style: TextStyle(fontSize: 14, color: Colors.black54),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Role Segment Switcher
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildRoleTab(
-                            title: 'Student',
-                            icon: Icons.person_outline,
-                            role: 'STUDENT',
-                          ),
-                        ),
-                        Expanded(
-                          child: _buildRoleTab(
-                            title: 'Teacher',
-                            icon: Icons.psychology_outlined,
-                            role: 'TEACHER',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  if (_errorMessage != null)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.red.shade200),
-                      ),
-                      child: Row(
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppGradients.primaryDeep),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IconButton(
+                  icon: const Icon(Icons.dns_rounded, color: Colors.white),
+                  tooltip: 'Configure Server IP',
+                  onPressed: () => AppConfig.showServerConfigDialog(context),
+                ),
+              ),
+              Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  child: AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: Colors.red, fontSize: 12),
+                          const SizedBox(height: AppSpacing.sm),
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                gradient: _roleGradient,
+                                shape: BoxShape.circle,
+                                boxShadow: AppShadows.brand,
+                              ),
+                              child: const Icon(
+                                Icons.school_rounded,
+                                size: 32,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
+                          const SizedBox(height: AppSpacing.md),
+                          const Text(
+                            'Anti-Proxy Attendance',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          const Text(
+                            'Sign in to access your portal',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+
+                          // Role segmented switcher
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(AppRadii.md),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildRoleTab(
+                                    title: 'Student',
+                                    icon: Icons.person_outline,
+                                    role: 'STUDENT',
+                                    gradient: AppGradients.primary,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _buildRoleTab(
+                                    title: 'Teacher',
+                                    icon: Icons.psychology_outlined,
+                                    role: 'TEACHER',
+                                    gradient: AppGradients.teacher,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: AppSpacing.lg),
+
+                          if (_errorMessage != null)
+                            Container(
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                              decoration: BoxDecoration(
+                                color: AppColors.dangerLight,
+                                borderRadius: BorderRadius.circular(AppRadii.sm),
+                                border: Border.all(color: AppColors.dangerLight),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline,
+                                      color: AppColors.danger, size: 20),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      _errorMessage!,
+                                      style: const TextStyle(
+                                          color: AppColors.danger, fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                          // Email
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            decoration: InputDecoration(
+                              labelText: 'Institutional Email',
+                              hintText: _isStudent
+                                  ? 'e.g. student@student.sust.edu'
+                                  : 'e.g. ahmed@teacher.sust.edu',
+                              prefixIcon: Icon(Icons.email_outlined,
+                                  color: _roleColor),
+                            ),
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Email is required';
+                              }
+                              if (!val.contains('@')) {
+                                return 'Enter a valid email address';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: AppSpacing.md),
+
+                          // Password
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: !_isPasswordVisible,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _handleLogin(),
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: Icon(Icons.lock_outline, color: _roleColor),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _isPasswordVisible
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () => setState(
+                                    () => _isPasswordVisible = !_isPasswordVisible),
+                              ),
+                            ),
+                            validator: (val) {
+                              if (val == null || val.isEmpty) {
+                                return 'Password is required';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: AppSpacing.lg),
+
+                          PrimaryButton(
+                            label: _isStudent
+                                ? 'Sign In as Student'
+                                : 'Sign In as Teacher',
+                            icon: Icons.login_rounded,
+                            gradient: _roleGradient,
+                            loading: _isLoading,
+                            onPressed: _isLoading ? null : _handleLogin,
+                            expand: true,
+                          ),
+
+                          const SizedBox(height: AppSpacing.md),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                "Don't have an account? ",
+                                style: TextStyle(color: AppColors.textSecondary),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) => const RegisterScreen()),
+                                  );
+                                },
+                                child: Text(
+                                  'Register here',
+                                  style: TextStyle(
+                                    color: _roleColor,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
                         ],
                       ),
                     ),
-
-                  // Email
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(
-                      labelText: 'Institutional Email',
-                      hintText: _selectedRole == 'STUDENT' ? 'e.g. student@student.sust.edu' : 'e.g. ahmed@teacher.sust.edu',
-                      prefixIcon: const Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Email is required';
-                      if (!val.contains('@')) return 'Enter a valid email address';
-                      return null;
-                    },
                   ),
-
-                  const SizedBox(height: 16),
-
-                  // Password
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: !_isPasswordVisible,
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _handleLogin(),
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                        ),
-                        onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
-                      ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    validator: (val) {
-                      if (val == null || val.isEmpty) return 'Password is required';
-                      return null;
-                    },
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Submit Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _handleLogin,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _selectedRole == 'STUDENT' ? Colors.indigo : Colors.deepPurple,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                            )
-                          : Text(
-                              'Sign In as ${_selectedRole == 'STUDENT' ? 'Student' : 'Teacher'}',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Don't have an account? ", style: TextStyle(color: Colors.black54)),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const RegisterScreen()),
-                          );
-                        },
-                        child: const Text(
-                          'Register here',
-                          style: TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildRoleTab({required String title, required IconData icon, required String role}) {
+  Widget _buildRoleTab({
+    required String title,
+    required IconData icon,
+    required String role,
+    required LinearGradient gradient,
+  }) {
     final bool isSelected = _selectedRole == role;
     return GestureDetector(
       onTap: () {
@@ -292,25 +341,27 @@ class _LoginScreenState extends State<LoginScreen> {
           _errorMessage = null;
         });
       },
-      child: Container(
+      child: AnimatedContainer(
+        duration: AppDurations.fast,
+        curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: isSelected
-              ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))]
-              : [],
+          gradient: isSelected ? gradient : null,
+          color: isSelected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadii.sm),
+          boxShadow: isSelected ? AppShadows.soft : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: isSelected ? Colors.indigo : Colors.black54),
+            Icon(icon,
+                size: 18, color: isSelected ? Colors.white : AppColors.textMuted),
             const SizedBox(width: 6),
             Text(
               title,
               style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.indigo : Colors.black54,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
               ),
             ),
           ],

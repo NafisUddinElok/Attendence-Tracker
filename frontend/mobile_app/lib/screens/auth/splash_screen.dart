@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'login_screen.dart';
-import '../../main.dart'; // Points to RoleSelectionHomeScreen or Dashboard
+import '../../main.dart';
+import '../../theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -10,17 +11,39 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   final _storage = const FlutterSecureStorage();
+  late final AnimationController _pulse;
+  late final Animation<double> _fadeIn;
 
   @override
   void initState() {
     super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+
+    _fadeIn = CurvedAnimation(
+      parent: AnimationController(
+        vsync: this,
+        duration: AppDurations.slow,
+      )..forward(),
+      curve: Curves.easeOut,
+    );
+
     _checkAuthStatus();
   }
 
+  @override
+  void dispose() {
+    _pulse.dispose();
+    _fadeIn.parent.dispose();
+    super.dispose();
+  }
+
   Future<void> _checkAuthStatus() async {
-    // Artificial 1.5s delay for smooth splash experience
     await Future.delayed(const Duration(milliseconds: 1500));
 
     final token = await _storage.read(key: 'jwt_token');
@@ -29,13 +52,11 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     if (token != null && token.isNotEmpty && role != null) {
-      // User is already logged in -> Navigate directly to Main Hub
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const RoleSelectionHomeScreen()),
       );
     } else {
-      // No valid session -> Go to Login Screen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -46,44 +67,85 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.indigo.shade900,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppGradients.primaryDeep),
+        child: SafeArea(
+          child: Center(
+            child: FadeTransition(
+              opacity: _fadeIn,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedBuilder(
+                    animation: _pulse,
+                    builder: (context, _) {
+                      final scale = 1.0 + (_pulse.value * 0.06);
+                      return Transform.scale(
+                        scale: scale,
+                        child: Container(
+                          padding: const EdgeInsets.all(28),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primaryLight.withValues(alpha: 0.35),
+                                blurRadius: 36,
+                                spreadRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.fingerprint_rounded,
+                            size: 86,
+                            color: Colors.white,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  const Text(
+                    'SUST Attendance',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      'Anti-Proxy Biometric & Geofence System',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white70,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  const BrandBadge(
+                    label: 'Face · Geofence · TOTP QR',
+                    color: Colors.white,
+                    icon: Icons.verified_user_outlined,
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  const SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.6,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
-              child: const Icon(
-                Icons.fingerprint_rounded,
-                size: 80,
-                color: Colors.greenAccent,
-              ),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'SUST Attendance',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 1.1,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Anti-Proxy Biometric & Geofence System',
-              style: TextStyle(fontSize: 13, color: Colors.white70),
-            ),
-            const SizedBox(height: 48),
-            const CircularProgressIndicator(
-              strokeWidth: 3,
-              color: Colors.greenAccent,
-            ),
-          ],
+          ),
         ),
       ),
     );

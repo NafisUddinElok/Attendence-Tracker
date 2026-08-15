@@ -369,6 +369,11 @@
       ]
     },
     {
+      "name": "ffi",
+      "version": "2.2.0",
+      "dependencies": []
+    },
+    {
       "name": "quiver",
       "version": "3.2.2",
       "dependencies": [
@@ -381,11 +386,6 @@
       "dependencies": [
         "meta"
       ]
-    },
-    {
-      "name": "ffi",
-      "version": "2.2.0",
-      "dependencies": []
     },
     {
       "name": "google_mlkit_commons",

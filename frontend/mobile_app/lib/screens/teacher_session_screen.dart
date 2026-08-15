@@ -7,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../services/app_config.dart';
+import '../theme/app_theme.dart';
 
 class TeacherSessionScreen extends StatefulWidget {
   final String courseId;
@@ -45,7 +46,6 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
     _startLiveSession();
   }
 
-  /// 1. Initialize GPS Lock & Start Backend Session
   Future<void> _startLiveSession() async {
     setState(() {
       _isInitializing = true;
@@ -56,7 +56,6 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
       final baseUrl = await AppConfig.getBaseUrl();
       final token = await _storage.read(key: 'jwt_token');
 
-      // GPS Coordinates — must be the REAL current location, no silent fallback.
       double latitude;
       double longitude;
 
@@ -80,27 +79,21 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
 
         final position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 15), // was 3s — too short indoors
+          timeLimit: const Duration(seconds: 15),
         );
         latitude = position.latitude;
         longitude = position.longitude;
       } catch (e) {
-        // No silent fallback to a hardcoded "SUST Center" point anymore —
-        // that was silently mis-setting the geofence center whenever GPS
-        // lock timed out, causing every student to fail with
-        // "outside classroom boundary".
         if (mounted) {
           setState(() {
             _errorMessage =
-                'Could not get your current location: $e\n\nPlease make sure GPS is on '
-                '(stepping near a window can help indoors), then try again.';
+                'Could not get your current location: $e\n\nPlease make sure GPS is on (stepping near a window can help indoors), then try again.';
             _isInitializing = false;
           });
         }
         return;
       }
 
-      // Try calling primary session endpoint
       Uri sessionUri = Uri.parse('$baseUrl/api/sessions/start');
       var response = await http.post(
         sessionUri,
@@ -116,7 +109,6 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
         }),
       ).timeout(const Duration(seconds: 8));
 
-      // Fallback: If 404, try alternate route /api/sessions
       if (response.statusCode == 404) {
         sessionUri = Uri.parse('$baseUrl/api/sessions');
         response = await http.post(
@@ -134,7 +126,6 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
         ).timeout(const Duration(seconds: 8));
       }
 
-      // Check if response is valid JSON
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         final session = data['session'] ?? data['data'];
@@ -168,7 +159,6 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
     }
   }
 
-  /// 2. Real-Time Socket.IO Live Counter Feed
   void _initSocket(String baseUrl, String sessionId) {
     try {
       _socket = io.io(
@@ -200,7 +190,6 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
     } catch (_) {}
   }
 
-  /// 3. 15-Second Dynamic QR Token Rotation
   void _startTotpCountdown() {
     _totpTimer?.cancel();
     _totpTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
@@ -240,19 +229,25 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
     } catch (_) {}
   }
 
-  /// 4. End Session
   Future<void> _endSession() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.md)),
         title: const Text('End Live Attendance?'),
-        content: const Text('This will close the dynamic QR session. Students will no longer be able to scan.'),
+        content: const Text(
+            'This will close the dynamic QR session. Students will no longer be able to scan.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          PrimaryButton(
+            label: 'End Session',
+            icon: Icons.stop_circle_outlined,
+            color: AppColors.danger,
+            height: 42,
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
-            child: const Text('End Session'),
           ),
         ],
       ),
@@ -286,16 +281,20 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isUrgent = _secondsRemaining <= 4;
+    final timerColor = isUrgent ? AppColors.danger : AppColors.teacherPrimary;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: Text('${widget.courseCode} Live Session'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+      backgroundColor: AppColors.background,
+      appBar: GradientAppBar(
+        title: '${widget.courseCode} · Live Session',
+        gradient: AppGradients.teacherDeep,
+        showBackButton: true,
         actions: [
           if (!_isInitializing && _sessionId != null)
             IconButton(
-              icon: const Icon(Icons.stop_circle_outlined, color: Colors.redAccent),
+              icon: const Icon(Icons.stop_circle_outlined,
+                  color: Colors.white, size: 26),
               tooltip: 'End Session',
               onPressed: _endSession,
             ),
@@ -306,107 +305,139 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const CircularProgressIndicator(color: Colors.indigo),
-                  const SizedBox(height: 16),
-                  const Text('Initializing Anti-Proxy Engine...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const CircularProgressIndicator(
+                      color: AppColors.teacherPrimary),
+                  const SizedBox(height: AppSpacing.md),
+                  const Text(
+                    'Initializing Anti-Proxy Engine...',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: AppColors.textPrimary),
+                  ),
                   const SizedBox(height: 6),
-                  Text('Locking GPS Geofence & Starting Session for ${widget.courseCode}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                  Text(
+                    'Locking GPS Geofence & Starting Session for ${widget.courseCode}',
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 13),
+                  ),
                 ],
               ),
             )
           : _errorMessage != null
               ? Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 54),
-                        const SizedBox(height: 14),
-                        Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.black87, fontSize: 14)),
-                        const SizedBox(height: 18),
-                        ElevatedButton.icon(
+                        const Icon(Icons.error_outline,
+                            color: AppColors.danger, size: 54),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(_errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                color: AppColors.textPrimary, fontSize: 14)),
+                        const SizedBox(height: AppSpacing.md),
+                        PrimaryButton(
+                          label: 'Try Again',
+                          icon: Icons.refresh_rounded,
+                          gradient: AppGradients.teacher,
                           onPressed: _startLiveSession,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Try Again'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
                         ),
                       ],
                     ),
                   ),
                 )
               : SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(AppSpacing.md),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      // LIVE pill (animated)
+                      AnimatedContainer(
+                        duration: AppDurations.medium,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
+                          color: AppColors.successLight,
+                          borderRadius: BorderRadius.circular(AppRadii.pill),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.sensors, color: Colors.green, size: 18),
+                            Icon(Icons.sensors_rounded,
+                                color: AppColors.success, size: 18),
                             SizedBox(width: 6),
                             Text(
                               'LIVE TOTP SESSION ACTIVE',
-                              style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
+                              style: TextStyle(
+                                color: AppColors.success,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.sm),
                       Text(
                         widget.courseTitle,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 18),
-
-                      // Dynamic QR Code Container
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 4)),
-                          ],
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
                         ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // QR Card with Timer Ring
+                      AppCard(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
                         child: Column(
                           children: [
-                            if (_currentQrToken != null)
-                              QrImageView(
-                                data: _currentQrToken!,
-                                version: QrVersions.auto,
-                                size: 230.0,
-                              )
-                            else
-                              const SizedBox(height: 230, child: Center(child: CircularProgressIndicator())),
-                            const SizedBox(height: 16),
-
+                            AnimatedSwitcher(
+                              duration: AppDurations.fast,
+                              child: _currentQrToken != null
+                                  ? QrImageView(
+                                      key: ValueKey(_currentQrToken),
+                                      data: _currentQrToken!,
+                                      version: QrVersions.auto,
+                                      size: 230.0,
+                                    )
+                                  : const SizedBox(
+                                      key: ValueKey('qr-loading'),
+                                      height: 230,
+                                      child: Center(
+                                          child: CircularProgressIndicator()),
+                                    ),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                SizedBox(
+                                AnimatedContainer(
+                                  duration: AppDurations.fast,
                                   width: 18,
                                   height: 18,
                                   child: CircularProgressIndicator(
                                     value: _secondsRemaining / 15.0,
                                     strokeWidth: 3,
-                                    color: _secondsRemaining <= 4 ? Colors.redAccent : Colors.indigo,
+                                    color: timerColor,
                                   ),
                                 ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'Rotates in $_secondsRemaining seconds',
+                                const SizedBox(width: AppSpacing.sm),
+                                AnimatedDefaultTextStyle(
+                                  duration: AppDurations.fast,
                                   style: TextStyle(
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w800,
                                     fontSize: 13,
-                                    color: _secondsRemaining <= 4 ? Colors.redAccent : Colors.black87,
+                                    color: timerColor,
+                                  ),
+                                  child: Text(
+                                    'Rotates in $_secondsRemaining seconds',
                                   ),
                                 ),
                               ],
@@ -415,13 +446,15 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.lg),
 
+                      // Live Counter gradient card
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(AppSpacing.md),
                         decoration: BoxDecoration(
-                          color: Colors.indigo,
-                          borderRadius: BorderRadius.circular(16),
+                          gradient: AppGradients.teacher,
+                          borderRadius: BorderRadius.circular(AppRadii.lg),
+                          boxShadow: AppShadows.brand,
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -429,37 +462,103 @@ class _TeacherSessionScreenState extends State<TeacherSessionScreen> {
                             const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Total Checked In', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                                Text('Live Students', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(
+                                  'Total Checked In',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  'Live Students',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                  ),
+                                ),
                               ],
                             ),
-                            Text(
-                              '$_checkedInCount',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 36),
+                            AnimatedSwitcher(
+                              duration: AppDurations.medium,
+                              transitionBuilder: (child, anim) => ScaleTransition(
+                                scale: anim,
+                                child: FadeTransition(
+                                    opacity: anim, child: child),
+                              ),
+                              child: Text(
+                                '$_checkedInCount',
+                                key: ValueKey(_checkedInCount),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 36,
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
 
-                      const SizedBox(height: 20),
+                      const SizedBox(height: AppSpacing.lg),
 
                       if (_recentAttendees.isNotEmpty) ...[
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('Recent Submissions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        const SectionHeader(
+                          title: 'Recent Check-ins',
+                          icon: Icons.people_alt_rounded,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSpacing.sm),
                         ..._recentAttendees.map((attendee) {
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              leading: const CircleAvatar(
-                                backgroundColor: Colors.green,
-                                child: Icon(Icons.check, color: Colors.white, size: 18),
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                            child: AppCard(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.md,
+                                  vertical: AppSpacing.sm),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.successLight,
+                                      borderRadius:
+                                          BorderRadius.circular(AppRadii.sm),
+                                    ),
+                                    child: const Icon(Icons.check_rounded,
+                                        color: AppColors.success, size: 20),
+                                  ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          attendee['name'],
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.textPrimary,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Reg: ${attendee['regNo']}',
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              color: AppColors.textSecondary),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const StatusChip(
+                                    label: 'PRESENT',
+                                    background: AppColors.successLight,
+                                    foreground: AppColors.success,
+                                    icon: Icons.check_circle_rounded,
+                                  ),
+                                ],
                               ),
-                              title: Text(attendee['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                              subtitle: Text('Reg: ${attendee['regNo']}'),
-                              trailing: const Text('PRESENT', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
                             ),
                           );
                         }),

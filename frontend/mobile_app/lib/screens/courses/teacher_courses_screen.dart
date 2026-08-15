@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../services/app_config.dart';
 import '../teacher_session_screen.dart';
 import '../teacher_report_screen.dart';
+import '../../theme/app_theme.dart';
 
 class TeacherCoursesScreen extends StatefulWidget {
   const TeacherCoursesScreen({super.key});
@@ -33,7 +34,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
     });
 
     try {
-      final baseUrl = await AppConfig.getBaseUrl(); // 👈 Dynamic Wi-Fi IP
+      final baseUrl = await AppConfig.getBaseUrl();
       final token = await _storage.read(key: 'jwt_token');
 
       final response = await http.get(
@@ -68,14 +69,22 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.md)),
         title: Text('Delete $courseCode?'),
-        content: const Text('This will permanently remove the course and its related attendance sessions.'),
+        content: const Text(
+            'This will permanently remove the course and its related attendance sessions.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          PrimaryButton(
+            label: 'Delete',
+            icon: Icons.delete_outline,
+            color: AppColors.danger,
+            height: 42,
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -98,14 +107,22 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
       if (response.statusCode == 200) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Course $courseCode deleted successfully.'), backgroundColor: Colors.indigo),
+          SnackBar(
+            content: Text('Course $courseCode deleted successfully.'),
+            backgroundColor: AppColors.teacherPrimary,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
         _fetchTeacherCourses();
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -120,86 +137,99 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: Colors.transparent,
       builder: (modalCtx) {
         return StatefulBuilder(
           builder: (ctx, setModalState) {
             return Padding(
               padding: EdgeInsets.only(
-                top: 24,
-                left: 20,
-                right: 20,
-                bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 20,
+                top: AppSpacing.lg,
+                left: AppSpacing.md,
+                right: AppSpacing.md,
+                bottom: MediaQuery.of(modalCtx).viewInsets.bottom + AppSpacing.md,
               ),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Create New Course',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
+              child: AppCard(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Create New Course',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.teacherPrimary,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close,
+                                color: AppColors.textMuted),
+                            onPressed: () => Navigator.pop(modalCtx),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      TextFormField(
+                        controller: codeCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: InputDecoration(
+                          labelText: 'Course Code',
+                          hintText: 'e.g. IPE-301, CSE-231',
+                          prefixIcon: const Icon(Icons.code),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(modalCtx),
+                        validator: (val) => val == null || val.trim().isEmpty
+                            ? 'Course code is required'
+                            : null,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      TextFormField(
+                        controller: titleCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Course Title',
+                          hintText: 'e.g. Supply Chain Management',
+                          prefixIcon: const Icon(Icons.book_outlined),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Course Code
-                    TextFormField(
-                      controller: codeCtrl,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: InputDecoration(
-                        labelText: 'Course Code',
-                        hintText: 'e.g. IPE-301, CSE-231',
-                        prefixIcon: const Icon(Icons.code),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        validator: (val) => val == null || val.trim().isEmpty
+                            ? 'Course title is required'
+                            : null,
                       ),
-                      validator: (val) => val == null || val.trim().isEmpty ? 'Course code is required' : null,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Course Title
-                    TextFormField(
-                      controller: titleCtrl,
-                      decoration: InputDecoration(
-                        labelText: 'Course Title',
-                        hintText: 'e.g. Supply Chain Management',
-                        prefixIcon: const Icon(Icons.book_outlined),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      const SizedBox(height: AppSpacing.md),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedDept,
+                        decoration: InputDecoration(
+                          labelText: 'Department',
+                          prefixIcon: const Icon(Icons.account_balance_outlined),
+                        ),
+                        items: [
+                          'IPE',
+                          'CSE',
+                          'SWE',
+                          'EEE',
+                          'ME',
+                          'CEE',
+                          'FET',
+                          'CHE',
+                          'PHY',
+                          'MAT'
+                        ]
+                            .map((d) =>
+                                DropdownMenuItem(value: d, child: Text(d)))
+                            .toList(),
+                        onChanged: (val) =>
+                            setModalState(() => selectedDept = val ?? 'IPE'),
                       ),
-                      validator: (val) => val == null || val.trim().isEmpty ? 'Course title is required' : null,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Department Dropdown
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedDept,
-                      decoration: InputDecoration(
-                        labelText: 'Department',
-                        prefixIcon: const Icon(Icons.account_balance_outlined),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      items: ['IPE', 'CSE', 'SWE', 'EEE', 'ME', 'CEE', 'FET', 'CHE', 'PHY', 'MAT']
-                          .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                          .toList(),
-                      onChanged: (val) => setModalState(() => selectedDept = val ?? 'IPE'),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Create Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
+                      const SizedBox(height: AppSpacing.lg),
+                      PrimaryButton(
+                        label: 'Add Course',
+                        icon: Icons.add_circle_outline,
+                        gradient: AppGradients.teacher,
+                        loading: isSubmitting,
                         onPressed: isSubmitting
                             ? null
                             : () async {
@@ -210,9 +240,9 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                                 final messenger = ScaffoldMessenger.of(context);
 
                                 try {
-                                  final baseUrl = await AppConfig.getBaseUrl(); // 👈 Dynamic Server IP
-                                  final token = await _storage.read(key: 'jwt_token');
-
+                                  final baseUrl = await AppConfig.getBaseUrl();
+                                  final token =
+                                      await _storage.read(key: 'jwt_token');
                                   final response = await http.post(
                                     Uri.parse('$baseUrl/api/courses'),
                                     headers: {
@@ -220,7 +250,8 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                                       'Authorization': 'Bearer $token',
                                     },
                                     body: jsonEncode({
-                                      'courseCode': codeCtrl.text.trim().toUpperCase(),
+                                      'courseCode':
+                                          codeCtrl.text.trim().toUpperCase(),
                                       'title': titleCtrl.text.trim(),
                                       'department': selectedDept,
                                     }),
@@ -228,12 +259,15 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
 
                                   final resData = jsonDecode(response.body);
 
-                                  if (response.statusCode == 201 || response.statusCode == 200) {
+                                  if (response.statusCode == 201 ||
+                                      response.statusCode == 200) {
                                     navigator.pop();
                                     messenger.showSnackBar(
-                                      const SnackBar(
-                                        content: Text('✅ Course created successfully!'),
-                                        backgroundColor: Colors.green,
+                                      SnackBar(
+                                        content: const Text(
+                                            '✅ Course created successfully!'),
+                                        backgroundColor: AppColors.success,
+                                        behavior: SnackBarBehavior.floating,
                                       ),
                                     );
                                     if (!mounted) return;
@@ -242,8 +276,10 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                                     setModalState(() => isSubmitting = false);
                                     messenger.showSnackBar(
                                       SnackBar(
-                                        content: Text(resData['message'] ?? 'Failed to create course'),
-                                        backgroundColor: Colors.redAccent,
+                                        content: Text(resData['message'] ??
+                                            'Failed to create course'),
+                                        backgroundColor: AppColors.danger,
+                                        behavior: SnackBarBehavior.floating,
                                       ),
                                     );
                                   }
@@ -252,22 +288,16 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                                   messenger.showSnackBar(
                                     SnackBar(
                                       content: Text('Connection failed: $e'),
-                                      backgroundColor: Colors.redAccent,
+                                      backgroundColor: AppColors.danger,
+                                      behavior: SnackBarBehavior.floating,
                                     ),
                                   );
                                 }
                               },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.indigo,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        child: isSubmitting
-                            ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                            : const Text('Add Course', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        expand: true,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -280,44 +310,60 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text('My Courses (Instructor)'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+      backgroundColor: AppColors.background,
+      appBar: GradientAppBar(
+        title: 'My Courses · Instructor',
+        gradient: AppGradients.teacherDeep,
+        showBackButton: true,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateCourseModal,
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('New Course', style: TextStyle(fontWeight: FontWeight.bold)),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          gradient: AppGradients.teacher,
+          borderRadius: BorderRadius.circular(AppRadii.pill),
+          boxShadow: AppShadows.brand,
+        ),
+        child: FloatingActionButton.extended(
+          onPressed: _showCreateCourseModal,
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          icon: const Icon(Icons.add),
+          label: const Text('New Course',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: _fetchTeacherCourses,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.teacherPrimary))
             : _errorMessage != null
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-                        const SizedBox(height: 8),
-                        ElevatedButton(onPressed: _fetchTeacherCourses, child: const Text('Retry')),
+                        Text(_errorMessage!,
+                            style: const TextStyle(color: AppColors.danger)),
+                        const SizedBox(height: AppSpacing.sm),
+                        PrimaryButton(
+                          label: 'Retry',
+                          icon: Icons.refresh,
+                          gradient: AppGradients.teacher,
+                          onPressed: _fetchTeacherCourses,
+                        ),
                       ],
                     ),
                   )
                 : _courses.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'You have not created any courses yet.\nTap "+ New Course" to add one.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey, fontSize: 15),
-                        ),
+                    ? EmptyState(
+                        icon: Icons.menu_book_rounded,
+                        title: 'No courses yet',
+                        subtitle:
+                            'Tap the "New Course" button below to create your first course.',
+                        accentColor: AppColors.teacherPrimary,
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(AppSpacing.md),
                         itemCount: _courses.length,
                         itemBuilder: (context, index) {
                           final course = _courses[index];
@@ -325,81 +371,74 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                           final code = course['course_code'] ?? 'N/A';
                           final title = course['title'] ?? 'Untitled';
                           final dept = course['department'] ?? 'SUST';
-                          final enrolledCount = course['enrolled_students_count'] ?? 0;
+                          final enrolledCount =
+                              course['enrolled_students_count'] ?? 0;
 
-                          return Card(
-                            elevation: 1.5,
-                            margin: const EdgeInsets.only(bottom: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                            child: AppCard(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.indigo.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          code,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.indigo,
-                                          ),
-                                        ),
+                                      StatusChip(
+                                        label: code,
+                                        background: AppColors.teacherLight,
+                                        foreground: AppColors.teacherPrimary,
+                                        icon: Icons.menu_book_rounded,
                                       ),
                                       Row(
                                         children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue.withValues(alpha: 0.1),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              '$enrolledCount Students',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.blue,
-                                              ),
-                                            ),
+                                          BrandBadge(
+                                            label: '$enrolledCount Students',
+                                            color: AppColors.info,
+                                            icon: Icons.group_outlined,
                                           ),
                                           IconButton(
-                                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                                            onPressed: () => _deleteCourse(courseId, code),
+                                            icon: const Icon(Icons.delete_outline,
+                                                color: AppColors.danger, size: 20),
+                                            onPressed: () =>
+                                                _deleteCourse(courseId, code),
                                             tooltip: 'Delete Course',
                                           ),
                                         ],
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: AppSpacing.sm),
                                   Text(
                                     title,
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.textPrimary,
+                                    ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text('Department: $dept', style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                                  const SizedBox(height: 14),
+                                  const SizedBox(height: AppSpacing.xs),
+                                  Text(
+                                    'Department: $dept',
+                                    style: const TextStyle(
+                                        fontSize: 13, color: AppColors.textSecondary),
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
                                   const Divider(height: 1),
-                                  const SizedBox(height: 10),
-
+                                  const SizedBox(height: AppSpacing.sm),
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: OutlinedButton.icon(
+                                        child: GhostButton(
+                                          label: 'Reports',
+                                          icon: Icons.bar_chart_rounded,
+                                          color: AppColors.teacherPrimary,
+                                          expand: true,
                                           onPressed: () {
                                             Navigator.push(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) => TeacherReportScreen(
+                                                builder: (context) =>
+                                                    TeacherReportScreen(
                                                   courseId: courseId,
                                                   courseCode: code,
                                                   courseTitle: title,
@@ -407,23 +446,22 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                                               ),
                                             );
                                           },
-                                          icon: const Icon(Icons.bar_chart, size: 16),
-                                          label: const Text('Reports', style: TextStyle(fontSize: 13)),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: Colors.deepPurple,
-                                            side: const BorderSide(color: Colors.deepPurple),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          ),
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: AppSpacing.sm),
                                       Expanded(
-                                        child: ElevatedButton.icon(
+                                        child: PrimaryButton(
+                                          label: 'Live QR',
+                                          icon: Icons.qr_code_scanner_rounded,
+                                          gradient: AppGradients.teacher,
+                                          height: 42,
+                                          expand: true,
                                           onPressed: () {
                                             Navigator.push(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) => TeacherSessionScreen(
+                                                builder: (context) =>
+                                                    TeacherSessionScreen(
                                                   courseId: courseId,
                                                   courseCode: code,
                                                   courseTitle: title,
@@ -431,13 +469,6 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                                               ),
                                             );
                                           },
-                                          icon: const Icon(Icons.qr_code_scanner, size: 16),
-                                          label: const Text('Live QR', style: TextStyle(fontSize: 13)),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.indigo,
-                                            foregroundColor: Colors.white,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          ),
                                         ),
                                       ),
                                     ],

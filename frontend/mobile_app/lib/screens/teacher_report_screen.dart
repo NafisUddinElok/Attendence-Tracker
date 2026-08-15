@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/app_config.dart';
+import '../theme/app_theme.dart';
 
 class TeacherReportScreen extends StatefulWidget {
   final String courseId;
@@ -45,7 +46,8 @@ class _TeacherReportScreenState extends State<TeacherReportScreen> {
       final baseUrl = await AppConfig.getBaseUrl();
       final token = await _storage.read(key: 'jwt_token');
       final response = await http.get(
-        Uri.parse('$baseUrl/api/courses/${widget.courseId}/students?search=$query'),
+        Uri.parse(
+            '$baseUrl/api/courses/${widget.courseId}/students?search=$query'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -88,7 +90,8 @@ class _TeacherReportScreenState extends State<TeacherReportScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('✅ Report saved: ${file.path}'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       } else {
@@ -96,14 +99,23 @@ class _TeacherReportScreenState extends State<TeacherReportScreen> {
         try {
           msg = jsonDecode(response.body)['message'] ?? msg;
         } catch (_) {}
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export error: $e'), backgroundColor: Colors.redAccent),
+        SnackBar(
+          content: Text('Export error: $e'),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -113,48 +125,100 @@ class _TeacherReportScreenState extends State<TeacherReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: Text('${widget.courseCode} - Attendance Report'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+      backgroundColor: AppColors.background,
+      appBar: GradientAppBar(
+        title: '${widget.courseCode} · Report',
+        gradient: AppGradients.teacherDeep,
+        showBackButton: true,
         actions: [
-          _isExporting
-              ? const Padding(
-                  padding: EdgeInsets.all(14.0),
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  ),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.file_download_outlined),
-                  tooltip: 'Export CSV',
-                  onPressed: _exportAttendanceReport,
+          if (_isExporting)
+            const Padding(
+              padding: EdgeInsets.all(AppSpacing.md),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
                 ),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.file_download_outlined),
+              tooltip: 'Export CSV',
+              onPressed: _exportAttendanceReport,
+            ),
         ],
       ),
       body: Column(
         children: [
-          // Header Stats
+          // Header Stats + Search
           Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            color: AppColors.surface,
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.courseTitle,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                GradientHeroCard(
+                  gradient: AppGradients.teacherDeep,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            StatusChip(
+                              label: widget.courseCode,
+                              background: Colors.white.withValues(alpha: 0.18),
+                              foreground: Colors.white,
+                              icon: Icons.menu_book_rounded,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              widget.courseTitle,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Course Attendance Report',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        children: [
+                          Text(
+                            '$_totalEnrolled',
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const Text(
+                            'Enrolled',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Total Enrolled Students: $_totalEnrolled',
-                  style: const TextStyle(color: Colors.black54, fontSize: 13),
-                ),
-                const SizedBox(height: 12),
-                // Search Bar
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   onChanged: (value) {
                     _searchQuery = value;
@@ -162,79 +226,121 @@ class _TeacherReportScreenState extends State<TeacherReportScreen> {
                   },
                   decoration: InputDecoration(
                     hintText: 'Search by Reg No or Name...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
                     filled: true,
-                    fillColor: Colors.grey[100],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
+                    fillColor: AppColors.background,
                   ),
                 ),
               ],
             ),
           ),
 
-          const Divider(height: 1),
+          const Divider(height: 1, color: AppColors.border),
 
-          // Students Enrolled List with Biometrics Status
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _enrolledStudents.isEmpty
-                    ? Center(
-                        child: Text(
-                          _searchQuery.isEmpty
-                              ? 'No students enrolled yet.'
-                              : 'No students match "$_searchQuery"',
-                          style: const TextStyle(color: Colors.grey),
-                        ),
+                    ? EmptyState(
+                        icon: Icons.group_outlined,
+                        title: _searchQuery.isEmpty
+                            ? 'No students enrolled yet'
+                            : 'No matches found',
+                        subtitle: _searchQuery.isEmpty
+                            ? 'Students will appear here once they enroll in this course.'
+                            : 'No students match "$_searchQuery".',
+                        accentColor: AppColors.teacherPrimary,
+                        actionLabel: _searchQuery.isEmpty
+                            ? null
+                            : 'Clear Search',
+                        onAction: _searchQuery.isEmpty
+                            ? null
+                            : () {
+                                _searchQuery = '';
+                                _fetchEnrolledStudents();
+                              },
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        itemCount: _enrolledStudents.length,
-                        itemBuilder: (context, index) {
-                          final student = _enrolledStudents[index];
-                          final regNo = student['registration_no'] ?? 'N/A';
-                          final name = student['full_name'] ?? 'Unnamed';
-                          final dept = student['department'] ?? 'SUST';
+                    : RefreshIndicator(
+                        onRefresh: () => _fetchEnrolledStudents(_searchQuery),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                          itemCount: _enrolledStudents.length,
+                          itemBuilder: (context, index) {
+                            final student = _enrolledStudents[index];
+                            final regNo =
+                                student['registration_no'] ?? 'N/A';
+                            final name = student['full_name'] ?? 'Unnamed';
+                            final dept = student['department'] ?? 'SUST';
 
-                          return Card(
-                            elevation: 1,
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: Colors.indigo.shade50,
-                                child: Text(
-                                  name.isNotEmpty ? name[0].toUpperCase() : 'S',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.indigo,
-                                  ),
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.only(bottom: AppSpacing.sm),
+                              child: AppCard(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.md,
+                                    vertical: AppSpacing.sm),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        gradient: AppGradients.teacher,
+                                        borderRadius:
+                                            BorderRadius.circular(AppRadii.sm),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          name.isNotEmpty
+                                              ? name[0].toUpperCase()
+                                              : 'S',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpacing.md),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.textPrimary,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '$regNo · $dept',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    StatusChip(
+                                      label: 'Enrolled',
+                                      background:
+                                          AppColors.info.withValues(alpha: 0.12),
+                                      foreground: AppColors.info,
+                                      icon: Icons.verified_user_rounded,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text('$regNo • $dept', style: const TextStyle(fontSize: 12)),
-                              trailing: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  'Enrolled',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.blue,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
           ),
         ],

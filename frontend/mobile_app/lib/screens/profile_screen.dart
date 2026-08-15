@@ -5,6 +5,7 @@ import '../services/app_config.dart';
 import '../services/device_service.dart';
 import 'auth/login_screen.dart';
 import 'face_register_screen.dart';
+import '../theme/app_theme.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,6 +22,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _role = 'STUDENT';
   String _currentDeviceId = 'Fetching Hardware UUID...';
   String _serverUrl = '';
+
+  bool get _isStudent => _role == 'STUDENT';
+  LinearGradient get _roleGradient =>
+      _isStudent ? AppGradients.primary : AppGradients.teacher;
+  Color get _roleColor =>
+      _isStudent ? AppColors.primary : AppColors.teacherPrimary;
 
   @override
   void initState() {
@@ -50,14 +57,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.md)),
         title: const Text('Sign Out'),
         content: const Text('Are you sure you want to sign out of SUST Attendance Hub?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
+          PrimaryButton(
+            label: 'Log Out',
+            icon: Icons.logout,
+            color: AppColors.danger,
+            height: 42,
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
-            child: const Text('Log Out'),
           ),
         ],
       ),
@@ -78,60 +88,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text('Account & Security'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+      backgroundColor: AppColors.background,
+      appBar: GradientAppBar(
+        title: 'Account & Security',
+        gradient: _roleGradient,
+        showBackButton: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Top Profile Header Card
             _buildProfileHeader(),
-
-            const SizedBox(height: 20),
-
-            // 2. Hardware Device Binding & Anti-Proxy Security Section
-            const Text(
-              'ANTI-PROXY HARDWARE BINDING',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 0.8),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.lg),
+            const SectionHeader('Anti-Proxy Hardware Binding'),
             _buildDeviceBindingCard(),
-
-            const SizedBox(height: 20),
-
-            // 3. Network & System Configuration
-            const Text(
-              'SYSTEM CONFIGURATION',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 0.8),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.lg),
+            const SectionHeader('System Configuration'),
             _buildSettingsCard(),
-
-            const SizedBox(height: 28),
-
-            // 4. Log Out Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: OutlinedButton.icon(
-                onPressed: _handleLogout,
-                icon: const Icon(Icons.logout, color: Colors.redAccent),
-                label: const Text(
-                  'Sign Out from this Device',
-                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.redAccent, width: 1.5),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
+            const SizedBox(height: AppSpacing.xl),
+            PrimaryButton(
+              label: 'Sign Out from this Device',
+              icon: Icons.logout_rounded,
+              gradient: AppGradients.danger,
+              onPressed: _handleLogout,
+              expand: true,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
           ],
         ),
       ),
@@ -139,54 +122,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
+    return GradientHeroCard(
+      gradient: _roleGradient,
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 34,
-            backgroundColor: Colors.indigo.shade50,
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
             child: Text(
               _fullName.isNotEmpty ? _fullName[0].toUpperCase() : 'U',
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.indigo),
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   _fullName,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   _email,
-                  style: const TextStyle(fontSize: 13, color: Colors.black54),
+                  style: const TextStyle(fontSize: 13, color: Colors.white70),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: _role == 'STUDENT'
-                        ? Colors.green.withValues(alpha: 0.15)
-                        : Colors.deepPurple.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(AppRadii.pill),
                   ),
                   child: Text(
-                    _role == 'STUDENT' ? '🎓 SUST Student' : '👨‍🏫 Faculty Member',
-                    style: TextStyle(
+                    _isStudent ? '🎓 SUST Student' : '👨‍🏫 Faculty Member',
+                    style: const TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: _role == 'STUDENT' ? Colors.green.shade800 : Colors.deepPurple,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -199,112 +189,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildDeviceBindingCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.phonelink_lock, color: Colors.indigo, size: 20),
-                    SizedBox(width: 8),
-                    Text('Hardware Device Lock', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'ACTIVE 🔒',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Your attendance submissions are cryptographically bound to this physical hardware UUID:',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Row(
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
                 children: [
-                  Expanded(
-                    child: Text(
-                      _currentDeviceId,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.copy, size: 18, color: Colors.indigo),
-                    tooltip: 'Copy UUID',
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: _currentDeviceId));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Device UUID copied to clipboard!'), duration: Duration(seconds: 2)),
-                      );
-                    },
-                  ),
+                  Icon(Icons.phonelink_lock, color: _roleColor, size: 20),
+                  const SizedBox(width: AppSpacing.sm),
+                  const Text('Hardware Device Lock',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 ],
               ),
+              const StatusChip(
+                label: 'ACTIVE',
+                background: AppColors.successLight,
+                foreground: AppColors.success,
+                icon: Icons.lock_outline,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const Text(
+            'Your attendance submissions are cryptographically bound to this physical hardware UUID:',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(AppRadii.sm),
+              border: Border.all(color: AppColors.border),
             ),
-            const SizedBox(height: 14),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Row(
               children: [
-                const Row(
-                  children: [
-                    Icon(Icons.face_retouching_natural, color: Colors.teal, size: 20),
-                    SizedBox(width: 8),
-                    Text('Biometric Vector (192-D)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  ],
+                Expanded(
+                  child: Text(
+                    _currentDeviceId,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
                 ),
-                TextButton(
+                IconButton(
+                  icon: Icon(Icons.copy, size: 18, color: _roleColor),
+                  tooltip: 'Copy UUID',
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const FaceRegisterScreen()),
-                    ).then((_) => _loadProfileData());
+                    Clipboard.setData(ClipboardData(text: _currentDeviceId));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Device UUID copied to clipboard!'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
                   },
-                  child: const Text('Re-Enroll Face', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const Divider(height: 1),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.face_retouching_natural, color: AppColors.info, size: 20),
+                  const SizedBox(width: AppSpacing.sm),
+                  const Text('Biometric Vector (192-D)',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ],
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const FaceRegisterScreen()),
+                  ).then((_) => _loadProfileData());
+                },
+                child: Text('Re-Enroll Face',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: _roleColor)),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildSettingsCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    return AppCard(
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           ListTile(
-            leading: const Icon(Icons.dns_outlined, color: Colors.indigo),
-            title: const Text('Backend Server URL', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-            subtitle: Text(_serverUrl, style: const TextStyle(fontSize: 12, color: Colors.black54)),
-            trailing: const Icon(Icons.edit_outlined, size: 18),
+            leading: Icon(Icons.dns_outlined, color: _roleColor),
+            title: const Text('Backend Server URL',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            subtitle: Text(_serverUrl,
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textMuted),
             onTap: () {
               AppConfig.showServerConfigDialog(
                 context,
@@ -314,10 +306,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const Divider(height: 1, indent: 56),
           const ListTile(
-            leading: Icon(Icons.verified_user_outlined, color: Colors.indigo),
-            title: Text('SUST Attendance Protocol', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-            subtitle: Text('v2.4.0 • Anti-Proxy Secured', style: TextStyle(fontSize: 12, color: Colors.black54)),
-            trailing: Icon(Icons.check_circle, color: Colors.green, size: 18),
+            leading: Icon(Icons.verified_user_outlined, color: AppColors.primary),
+            title: Text('SUST Attendance Protocol',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            subtitle: Text('v2.4.0 • Anti-Proxy Secured',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            trailing: Icon(Icons.check_circle, color: AppColors.success, size: 18),
           ),
         ],
       ),

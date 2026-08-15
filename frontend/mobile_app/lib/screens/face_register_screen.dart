@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/device_service.dart';
 import '../services/face_embedding_service.dart';
 import '../services/app_config.dart';
+import '../theme/app_theme.dart';
 
 class FaceRegisterScreen extends StatefulWidget {
   const FaceRegisterScreen({super.key});
@@ -21,6 +22,9 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
 
   bool _isProcessing = false;
   String _statusMessage = 'Place your face inside the circle';
+  int _currentStep = 0;
+
+  static const _steps = ['Detect', 'Liveness', 'Embed', 'Register'];
 
   @override
   void initState() {
@@ -47,12 +51,16 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
   }
 
   Future<void> _captureAndRegister() async {
-    if (_isProcessing || _cameraController == null || !_cameraController!.value.isInitialized) return;
-
+    if (_isProcessing ||
+        _cameraController == null ||
+        !_cameraController!.value.isInitialized) return;
     setState(() {
       _isProcessing = true;
       _statusMessage = 'Detecting face & checking quality...';
+      _currentStep = 0;
     });
+
+    setState(() => _currentStep = 1);
 
     try {
       final picture = await _cameraController!.takePicture();
@@ -62,32 +70,44 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
         setState(() {
           _statusMessage = 'No face or multiple faces detected. Keep only your face visible.';
           _isProcessing = false;
+          _currentStep = 0;
         });
         return;
       }
 
-      if ((face.leftEyeOpenProbability ?? 1.0) < 0.6 || (face.rightEyeOpenProbability ?? 1.0) < 0.6) {
+      if ((face.leftEyeOpenProbability ?? 1.0) < 0.6 ||
+          (face.rightEyeOpenProbability ?? 1.0) < 0.6) {
         setState(() {
           _statusMessage = 'Please keep both eyes clearly open.';
           _isProcessing = false;
+          _currentStep = 1;
         });
         return;
       }
 
-      setState(() => _statusMessage = 'Extracting facial vector embedding...');
+      setState(() {
+        _statusMessage = 'Extracting facial vector embedding...';
+        _currentStep = 2;
+      });
 
-      final embedding = await _biometricService.extractFaceEmbedding(picture.path, face);
+      final embedding =
+          await _biometricService.extractFaceEmbedding(picture.path, face);
       if (embedding == null) {
         setState(() {
           _statusMessage = 'Failed to extract face vector. Please try again.';
           _isProcessing = false;
+          _currentStep = 2;
         });
         return;
       }
 
       final deviceId = await DeviceService.getDeviceId();
 
-      setState(() => _statusMessage = 'Securing biometrics on server...');
+      setState(() {
+        _statusMessage = 'Securing biometrics on server...';
+        _currentStep = 3;
+      });
+
       final baseUrl = await AppConfig.getBaseUrl();
       final token = await _storage.read(key: 'jwt_token');
 
@@ -106,9 +126,10 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
       if (response.statusCode == 200) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Device & Face registered successfully!'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('✅ Device & Face registered successfully!'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
           ),
         );
         Navigator.pop(context, true);
@@ -117,12 +138,14 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
         setState(() {
           _statusMessage = err['message'] ?? 'Registration failed.';
           _isProcessing = false;
+          _currentStep = 0;
         });
       }
     } catch (e) {
       setState(() {
         _statusMessage = 'Error during registration: $e';
         _isProcessing = false;
+        _currentStep = 0;
       });
     }
   }
@@ -137,17 +160,27 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
   @override
   Widget build(BuildContext context) {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const GradientAppBar(
+          title: 'Biometric Registration',
+          gradient: AppGradients.primaryDeep,
+          showBackButton: true,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
+    final isError = _statusMessage.contains('Error') ||
+        _statusMessage.contains('No face');
+
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Biometric Registration'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+      extendBodyBehindAppBar: true,
+      appBar: GradientAppBar(
+        title: 'Biometric Registration',
+        gradient: AppGradients.primaryDeep,
+        showBackButton: true,
       ),
       body: Column(
         children: [
@@ -156,63 +189,55 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
               alignment: Alignment.center,
               children: [
                 CameraPreview(_cameraController!),
-                Container(
-                  width: 260,
-                  height: 340,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: _isProcessing ? Colors.amber : Colors.greenAccent,
-                      width: 3,
-                    ),
-                    borderRadius: BorderRadius.circular(160),
-                  ),
+                // Pulse frame overlay
+                PulseFrame(
+                  isActive: _isProcessing,
+                  color: _isProcessing ? AppColors.warning : AppColors.success,
+                  size: const Size(260, 340),
+                  borderRadius: 160,
+                  borderWidth: 3,
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
             decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              color: AppColors.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.xl)),
+              boxShadow: AppShadows.medium,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                StepIndicator(
+                  labels: _steps,
+                  activeIndex: _currentStep,
+                ),
+                const SizedBox(height: AppSpacing.md),
                 Text(
                   _statusMessage,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: _statusMessage.contains('Error') || _statusMessage.contains('No face')
-                        ? Colors.red
-                        : Colors.black87,
+                    fontWeight: FontWeight.w700,
+                    color: isError
+                        ? AppColors.danger
+                        : AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
+                const SizedBox(height: AppSpacing.md),
+                PrimaryButton(
+                  label: _isProcessing
+                      ? 'Processing...'
+                      : 'Register Device & Face',
+                  icon: Icons.fingerprint_rounded,
+                  gradient: AppGradients.success,
+                  loading: _isProcessing,
+                  expand: true,
                   height: 52,
-                  child: ElevatedButton.icon(
-                    onPressed: _isProcessing ? null : _captureAndRegister,
-                    icon: _isProcessing
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.fingerprint),
-                    label: Text(
-                      _isProcessing ? 'Processing...' : 'Register Device & Face',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
+                  onPressed: _captureAndRegister,
                 ),
               ],
             ),
