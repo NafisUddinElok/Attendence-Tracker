@@ -1,26 +1,39 @@
 const http = require('http');
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
 const { Server } = require('socket.io');
+const env = require('./config/env');
+const { buildApp } = require('./app');
 
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-
-const authRoutes = require('./routes/authRoutes');
-const courseRoutes = require('./routes/courseRoutes');
-const sessionRoutes = require('./routes/sessionRoutes');
-const attendanceRoutes = require('./routes/attendanceRoutes');
-const reportRoutes = require('./routes/reportRoutes');
-
-
-const app = express();
+const app = buildApp();
 const server = http.createServer(app);
 
-// Initialize Socket.IO
+// Optional first-boot migration. Render Postgres comes empty; setting
+// DB_BOOTSTRAP=1 in the service env runs init.sql + migrations/*.sql once
+// at startup. Every statement uses IF NOT EXISTS guards so this is safe
+// on every redeploy (no-op after the first run).
+if (String(process.env.DB_BOOTSTRAP || env.DB_BOOTSTRAP || '0') === '1') {
+  // Lazy import so the dependency is only paid when bootstrap is requested.
+  // eslint-disable-next-line global-require
+  const { migrate } = require('./db/migrate');
+  // eslint-disable-next-line no-console
+  console.log('[bootstrap] DB_BOOTSTRAP=1 — running migrations…');
+  migrate()
+    // eslint-disable-next-line no-console
+    .then(() => console.log('[bootstrap] migrations complete'))
+    .catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error('[bootstrap] migration failed:', err.message);
+      // Fail fast so Render marks the deploy as crashed and we notice.
+      process.exit(1);
+    });
+}
+
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: env.CORS_ORIGINS === '*' || !env.CORS_ORIGINS
+      ? true
+      : env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean),
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
 
@@ -32,28 +45,21 @@ io.on('connection', (socket) => {
   });
 });
 
-// Pass `io` instance to all Express routes via middleware
-app.use((req, res, next) => {
+// Expose `io` to route handlers
+app.use((req, _res, next) => {
   req.io = io;
   next();
 });
 
-// Middlewares
-app.use(cors());
-app.use(express.json());
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/courses', courseRoutes);
-app.use('/api/sessions', sessionRoutes);
-app.use('/api/attendance', attendanceRoutes);
-app.use('/api/reports', reportRoutes);
-
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', message: 'Attendance Tracker API is live' });
-});
-
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT || env.PORT || 3000);
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[server] listening on :${PORT} (${env.NODE_ENV})` +
+      (process.env.RENDER_EXTERNAL_URL
+        ? ` | public: ${process.env.RENDER_EXTERNAL_URL}`
+        : '')
+  );
 });
+
+module.exports = { app, server, io };

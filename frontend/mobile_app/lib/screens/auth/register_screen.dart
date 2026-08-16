@@ -98,8 +98,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Registration successful! Please login.'),
+          const SnackBar(
+            content: Text('Registration successful! Please login.'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
           ),

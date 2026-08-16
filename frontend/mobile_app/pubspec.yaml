@@ -15,6 +15,7 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   socket_io_client: ^3.0.2
   provider: ^6.1.2
+  flutter_riverpod: ^2.5.1
 
   # Security & Dynamic QR
   crypto: ^3.0.3

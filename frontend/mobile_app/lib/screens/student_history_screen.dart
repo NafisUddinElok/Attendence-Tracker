@@ -77,7 +77,7 @@ class _StudentHistoryScreenState extends State<StudentHistoryScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: GradientAppBar(
+      appBar: const GradientAppBar(
         title: 'My Attendance History',
         gradient: AppGradients.primaryDeep,
         showBackButton: true,

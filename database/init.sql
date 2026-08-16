@@ -20,4 +20,7 @@
 \echo 'Creating Attendance Audit Logs Table...'
 \i tables/attendance_audit_logs.sql
 
+\echo 'Applying Phase E auth migration...'
+\i migrations/002_phase_e_auth.sql
+
 \echo '✅ All Database tables created successfully!'

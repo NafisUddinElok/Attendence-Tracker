@@ -224,9 +224,9 @@ class _TeacherReportScreenState extends State<TeacherReportScreen> {
                     _searchQuery = value;
                     _fetchEnrolledStudents(value);
                   },
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     hintText: 'Search by Reg No or Name...',
-                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                    prefixIcon: Icon(Icons.search_rounded, size: 20),
                     filled: true,
                     fillColor: AppColors.background,
                   ),

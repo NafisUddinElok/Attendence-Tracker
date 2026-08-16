@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'theme/app_theme.dart';
-import 'screens/auth/splash_screen.dart';
+import 'features/auth/presentation/screens/splash_gate.dart';
 import 'screens/courses/student_courses_screen.dart';
 import 'screens/courses/teacher_courses_screen.dart';
 import 'screens/face_register_screen.dart';
@@ -11,7 +13,7 @@ import 'services/app_config.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const AttendanceApp());
+  runApp(const ProviderScope(child: AttendanceApp()));
 }
 
 class AttendanceApp extends StatelessWidget {
@@ -23,7 +25,8 @@ class AttendanceApp extends StatelessWidget {
       title: 'SUST Attendance Tracker',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      home: const SplashScreen(),
+      onGenerateRoute: onGenerateRoute,
+      home: const SplashGate(),
     );
   }
 }
