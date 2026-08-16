@@ -8,7 +8,10 @@ router.post('/session/start', protect, authorizeRoles('TEACHER'), attendanceCont
 router.post('/session/:id/end', protect, authorizeRoles('TEACHER'), attendanceController.endSession);
 router.get('/session/:id/live', protect, authorizeRoles('TEACHER'), attendanceController.getLiveSession);
 
-// Student 5-Step Verification
+// Student: find the live session for a course (replaces QR scan)
+router.get('/session/active/:courseId', protect, authorizeRoles('STUDENT'), attendanceController.getActiveSessionForCourse);
+
+// Student Geofence-Based Verification
 router.post('/verify', protect, authorizeRoles('STUDENT'), attendanceController.verifyAttendance);
 
 // Attendance History

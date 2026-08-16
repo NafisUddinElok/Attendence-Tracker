@@ -1,20 +1,40 @@
 const db = require('../config/db');
 const {
-  verifyTimeToken,
   calculateHaversineDistance,
   calculateCosineSimilarity,
-  generateTotpSecret,
 } = require('../utils/securityUtils');
 
+// Geofence + session-length limits a teacher can configure from the app.
+// Kept server-side too so a tampered/old client can't push something silly.
+const MIN_RADIUS_METERS = 10;
+const MAX_RADIUS_METERS = 500;
+const MIN_DURATION_MINUTES = 1;
+const MAX_DURATION_MINUTES = 180;
+
 // -------------------------------------------------------------
-// TEACHER: Start Live Attendance Session
+// TEACHER: Start Live Attendance Session (QR removed — geofence only)
 // -------------------------------------------------------------
 exports.startSession = async (req, res) => {
-  const { courseId, title, centerLat, centerLng, radiusMeters, durationMinutes } = req.body;
+  const { courseId, title, centerLat, centerLng, radiusMeters, durationMinutes, enableBle } = req.body;
   const teacherId = req.user.id;
 
   if (!courseId || centerLat === undefined || centerLng === undefined) {
     return res.status(400).json({ message: 'courseId, centerLat, and centerLng are required.' });
+  }
+
+  // Validate & clamp teacher-configurable geofence settings
+  const radius = Number(radiusMeters) || 50;
+  if (radius < MIN_RADIUS_METERS || radius > MAX_RADIUS_METERS) {
+    return res.status(400).json({
+      message: `radiusMeters must be between ${MIN_RADIUS_METERS} and ${MAX_RADIUS_METERS}.`,
+    });
+  }
+
+  const duration = Number(durationMinutes) || 15;
+  if (duration < MIN_DURATION_MINUTES || duration > MAX_DURATION_MINUTES) {
+    return res.status(400).json({
+      message: `durationMinutes must be between ${MIN_DURATION_MINUTES} and ${MAX_DURATION_MINUTES}.`,
+    });
   }
 
   try {
@@ -34,40 +54,50 @@ exports.startSession = async (req, res) => {
       [courseId]
     );
 
-    // 3. Generate unique TOTP secret and session expiry
-    const totpSecret = generateTotpSecret();
-    const duration = durationMinutes || 15;
-    const expiresAt = new Date(Date.now() + duration * 60 * 1000);
+    // 3. Session start (now) + expiry, based on teacher-chosen length.
+    //    "session time" (start) is always the moment the teacher taps
+    //    Start — there's no future-scheduling here, only how long it
+    //    stays open once live.
+    const startedAt = new Date();
+    const expiresAt = new Date(startedAt.getTime() + duration * 60 * 1000);
+
+    // BLE beacon UUID: generated only if the teacher opted in for this
+    // session. Left NULL otherwise, which is what verifyAttendance checks
+    // to decide whether BLE proximity is enforced at all.
+    const bleUuid = enableBle ? require('crypto').randomUUID() : null;
 
     const result = await db.query(
-      `INSERT INTO attendance_sessions 
-       (course_id, title, center_lat, center_lng, radius_meters, totp_secret, expires_at, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+      `INSERT INTO attendance_sessions
+       (course_id, title, center_lat, center_lng, radius_meters, ble_uuid, expires_at, is_active, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8)
        RETURNING *`,
       [
         courseId,
         title || 'Regular Class',
         centerLat,
         centerLng,
-        radiusMeters || 50,
-        totpSecret,
+        radius,
+        bleUuid,
         expiresAt,
+        startedAt,
       ]
     );
 
     const session = result.rows[0];
 
     res.status(201).json({
-      message: 'Attendance session started successfully',
+      message: 'Live geofenced attendance session started successfully',
       session: {
         id: session.id,
         courseId: session.course_id,
         title: session.title,
-        totpSecret: session.totp_secret,
         centerLat: parseFloat(session.center_lat),
         centerLng: parseFloat(session.center_lng),
         radiusMeters: session.radius_meters,
+        bleUuid: session.ble_uuid,
+        startedAt: session.created_at,
         expiresAt: session.expires_at,
+        durationMinutes: duration,
         isActive: session.is_active,
       },
     });
@@ -149,12 +179,67 @@ exports.getLiveSession = async (req, res) => {
 };
 
 // -------------------------------------------------------------
-// STUDENT: Verify and Mark Attendance (5-Step Anti-Proxy Engine)
+// STUDENT: Get the currently active session for a course (replaces the
+// old QR scan — the student picks a course in the app and we look up
+// whatever live session the teacher currently has running for it).
+// -------------------------------------------------------------
+exports.getActiveSessionForCourse = async (req, res) => {
+  const { courseId } = req.params;
+  const studentId = req.user.id;
+
+  try {
+    // Must be enrolled in the course to see its live session
+    const enrollmentCheck = await db.query(
+      'SELECT id FROM enrollments WHERE student_id = $1 AND course_id = $2',
+      [studentId, courseId]
+    );
+    if (enrollmentCheck.rows.length === 0) {
+      return res.status(403).json({ message: 'You are not enrolled in this course.' });
+    }
+
+    const sessionResult = await db.query(
+      `SELECT id, title, ble_uuid, expires_at, created_at
+       FROM attendance_sessions
+       WHERE course_id = $1 AND is_active = TRUE AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [courseId]
+    );
+
+    if (sessionResult.rows.length === 0) {
+      return res.status(404).json({ message: 'No live attendance session right now for this course.' });
+    }
+
+    // Already marked? Tell the student up front instead of making them
+    // go through face capture first.
+    const session = sessionResult.rows[0];
+    const dup = await db.query(
+      'SELECT id FROM attendance_records WHERE session_id = $1 AND student_id = $2',
+      [session.id, studentId]
+    );
+
+    return res.status(200).json({
+      session: {
+        id: session.id,
+        title: session.title,
+        bleUuid: session.ble_uuid, // null unless the teacher enabled BLE
+        expiresAt: session.expires_at,
+      },
+      alreadyMarked: dup.rows.length > 0,
+    });
+  } catch (error) {
+    console.error('Get Active Session Error:', error);
+    res.status(500).json({ message: 'Server error while checking for a live session.' });
+  }
+};
+
+// -------------------------------------------------------------
+// STUDENT: Verify and Mark Attendance (Geofence-based Anti-Proxy Engine)
+// Steps: 0) duplicate guard 1) session validity 2) mock-GPS 3) geofence
+// 3b) BLE (optional) 4) device binding 5) face match 6) record 7) broadcast
 // -------------------------------------------------------------
 exports.verifyAttendance = async (req, res) => {
   const {
     sessionId,
-    token,
     deviceId,
     lat,
     lng,
@@ -199,22 +284,14 @@ exports.verifyAttendance = async (req, res) => {
       return res.status(400).json({ message: 'Attendance session has expired.' });
     }
 
-    // 2. 15-SECOND ROTATING TOTP TOKEN CHECK
-    const isTokenValid = verifyTimeToken(session.totp_secret, token);
-    if (!isTokenValid) {
-      return res.status(400).json({
-        message: 'QR Code has expired. Please scan the current live QR code.',
-      });
-    }
-
-    // 3. MOCK GPS SPOOF CHECK
+    // 2. MOCK GPS SPOOF CHECK
     if (isMockLocation === true) {
       return res.status(403).json({
         message: 'Fake GPS / Mock Location detected. Attendance blocked.',
       });
     }
 
-    // 4. GEOFENCE BOUNDARY (HAVERSINE DISTANCE)
+    // 3. GEOFENCE BOUNDARY (HAVERSINE DISTANCE)
     const distanceMeters = calculateHaversineDistance(
       parseFloat(session.center_lat),
       parseFloat(session.center_lng),
@@ -228,11 +305,11 @@ exports.verifyAttendance = async (req, res) => {
       });
     }
 
-    // 4b. BLE PROXIMITY CHECK (optional per-session, harder to spoof than GPS)
+    // 3b. BLE PROXIMITY CHECK (optional per-session, harder to spoof than GPS)
     // Only enforced when the teacher opted into BLE for this session
     // (session.ble_uuid is set). If the teacher's device couldn't
     // advertise BLE, the session simply has no ble_uuid and this check
-    // is skipped — GPS + TOTP + device + face still all apply.
+    // is skipped — GPS + device + face still all apply.
     if (session.ble_uuid) {
       if (
         !scannedBleUuid ||
@@ -255,7 +332,7 @@ exports.verifyAttendance = async (req, res) => {
       }
     }
 
-    // 5. HARDWARE DEVICE BINDING
+    // 4. HARDWARE DEVICE BINDING
     const studentResult = await db.query(
       'SELECT id, full_name, registration_no, device_id, is_device_locked, face_embedding FROM students WHERE id = $1',
       [studentId]
@@ -273,7 +350,7 @@ exports.verifyAttendance = async (req, res) => {
       });
     }
 
-    // 6. FACE BIOMETRIC EMBEDDING (COSINE SIMILARITY >= 0.75)
+    // 5. FACE BIOMETRIC EMBEDDING (COSINE SIMILARITY >= 0.75)
     if (!livenessPassed) {
       return res.status(403).json({
         message: 'Liveness check failed. Make sure both eyes are open and you\'re looking straight at the camera, then try again.',
@@ -310,7 +387,7 @@ exports.verifyAttendance = async (req, res) => {
       }
     }
 
-    // 7. RECORD ATTENDANCE (attendance_records only has session_id/student_id/status/marked_at)
+    // 6. RECORD ATTENDANCE (attendance_records only has session_id/student_id/status/marked_at)
     const attendanceRecord = await db.query(
       `INSERT INTO attendance_records (session_id, student_id, status)
        VALUES ($1, $2, 'PRESENT')
@@ -318,7 +395,7 @@ exports.verifyAttendance = async (req, res) => {
       [sessionId, studentId]
     );
 
-    // 7b. AUDIT LOG: keep the full attempt trail (device/location/similarity) separately
+    // 6b. AUDIT LOG: keep the full attempt trail (device/location/similarity) separately
     try {
       await db.query(
         `INSERT INTO attendance_audit_logs
@@ -330,7 +407,7 @@ exports.verifyAttendance = async (req, res) => {
       console.error('Audit Log Error (non-fatal):', auditError);
     }
 
-    // 8. REAL-TIME WEBSOCKET BROADCAST TO TEACHER DASHBOARD
+    // 7. REAL-TIME WEBSOCKET BROADCAST TO TEACHER DASHBOARD
     if (req.io) {
       req.io.to(`session_${sessionId}`).emit('student_marked', {
         studentId: student.id,

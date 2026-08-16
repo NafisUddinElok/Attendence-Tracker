@@ -8,7 +8,6 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const authRoutes = require('./routes/authRoutes');
 const courseRoutes = require('./routes/courseRoutes');
-const sessionRoutes = require('./routes/sessionRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 
@@ -45,7 +44,6 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
-app.use('/api/sessions', sessionRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/reports', reportRoutes);
 

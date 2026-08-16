@@ -11,7 +11,7 @@ class AppConfig {
   // is what removes the "everyone must be on my WiFi / re-enter my laptop's
   // IP every class" problem — after that, this dialog becomes an escape
   // hatch for local development rather than something students ever touch.
-  static const String productionUrl = 'https://YOUR-APP-NAME.onrender.com';
+  static const String productionUrl = 'https://attendance-tracker-backend-idqe.onrender.com';
 
   // Fallback for Android Emulator during local development.
   static const String defaultUrl = 'http://10.0.2.2:5000';
@@ -49,46 +49,54 @@ class AppConfig {
             Text('Server IP & Port', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Set the backend host URL for emulator or real physical device testing:',
-              style: TextStyle(fontSize: 13, color: Colors.black54),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                labelText: 'Backend Base URL',
-                hintText: 'e.g. http://192.168.0.105:5000',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                prefixIcon: const Icon(Icons.link),
+        // ✅ FIX: With 3 preset chips now (Production, Emulator, Localhost),
+        // the Wrap can grow to 2 lines — combined with the keyboard opening
+        // when the TextField is focused, the Column's natural height could
+        // exceed the available dialog space. SingleChildScrollView lets the
+        // content scroll internally instead of overflowing.
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Set the backend host URL for emulator or real physical device testing:',
+                style: TextStyle(fontSize: 13, color: Colors.black54),
               ),
-            ),
-            const SizedBox(height: 12),
-            const Text('Quick Presets:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              children: [
-                ActionChip(
-                  label: const Text('Production (Cloud)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  backgroundColor: Colors.indigo.withValues(alpha: 0.1),
-                  onPressed: () => controller.text = productionUrl,
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: 'Backend Base URL',
+                  hintText: 'e.g. http://192.168.0.105:5000',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  prefixIcon: const Icon(Icons.link),
                 ),
-                ActionChip(
-                  label: const Text('Android Emulator (local dev)', style: TextStyle(fontSize: 11)),
-                  onPressed: () => controller.text = 'http://10.0.2.2:5000',
-                ),
-                ActionChip(
-                  label: const Text('Localhost (local dev)', style: TextStyle(fontSize: 11)),
-                  onPressed: () => controller.text = 'http://localhost:5000',
-                ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 12),
+              const Text('Quick Presets:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6, // ✅ breathing room when chips wrap to a 2nd line
+                children: [
+                  ActionChip(
+                    label: const Text('Production (Cloud)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    backgroundColor: Colors.indigo.withValues(alpha: 0.1),
+                    onPressed: () => controller.text = productionUrl,
+                  ),
+                  ActionChip(
+                    label: const Text('Android Emulator (local dev)', style: TextStyle(fontSize: 11)),
+                    onPressed: () => controller.text = 'http://10.0.2.2:5000',
+                  ),
+                  ActionChip(
+                    label: const Text('Localhost (local dev)', style: TextStyle(fontSize: 11)),
+                    onPressed: () => controller.text = 'http://localhost:5000',
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(

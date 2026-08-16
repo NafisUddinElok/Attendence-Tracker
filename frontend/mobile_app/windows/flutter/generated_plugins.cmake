@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  file_saver
   flutter_ble_peripheral
   flutter_blue_plus_winrt
   flutter_secure_storage_windows

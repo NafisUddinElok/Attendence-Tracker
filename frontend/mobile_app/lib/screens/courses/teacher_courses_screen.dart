@@ -431,8 +431,8 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                                               ),
                                             );
                                           },
-                                          icon: const Icon(Icons.qr_code_scanner, size: 16),
-                                          label: const Text('Live QR', style: TextStyle(fontSize: 13)),
+                                          icon: const Icon(Icons.location_on_outlined, size: 16),
+                                          label: const Text('Go Live', style: TextStyle(fontSize: 13)),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: Colors.indigo,
                                             foregroundColor: Colors.white,

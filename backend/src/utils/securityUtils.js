@@ -1,39 +1,5 @@
-const crypto = require('crypto');
-
 // -------------------------------------------------------------
-// 1. Generate Cryptographically Secure Secret for TOTP
-// -------------------------------------------------------------
-exports.generateTotpSecret = () => {
-  return crypto.randomBytes(20).toString('hex');
-};
-
-// -------------------------------------------------------------
-// 2. Generate 15-Second Rolling Dynamic Token
-// -------------------------------------------------------------
-exports.generateTimeToken = (secret, offsetStep = 0) => {
-  const timeStep = Math.floor(Date.now() / 15000) + offsetStep;
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(timeStep.toString());
-  return hmac.digest('hex').substring(0, 8).toUpperCase();
-};
-
-// -------------------------------------------------------------
-// 3. Verify Dynamic TOTP Token (With +/- 1 step clock drift tolerance)
-// -------------------------------------------------------------
-exports.verifyTimeToken = (secret, token, toleranceSteps = 1) => {
-  if (!secret || !token) return false;
-
-  for (let offset = -toleranceSteps; offset <= toleranceSteps; offset++) {
-    const expectedToken = exports.generateTimeToken(secret, offset);
-    if (expectedToken === token.toUpperCase().trim()) {
-      return true;
-    }
-  }
-  return false;
-};
-
-// -------------------------------------------------------------
-// 4. Calculate Distance in Meters (Haversine Formula)
+// 1. Calculate Distance in Meters (Haversine Formula)
 // -------------------------------------------------------------
 exports.calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
   const toRad = (value) => (value * Math.PI) / 180;
@@ -52,7 +18,7 @@ exports.calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 // -------------------------------------------------------------
-// 5. Cosine Similarity for 192D MobileFaceNet Vector Comparison
+// 2. Cosine Similarity for 192D MobileFaceNet Vector Comparison
 // -------------------------------------------------------------
 exports.calculateCosineSimilarity = (vecA, vecB) => {
   if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length !== vecB.length || vecA.length === 0) {
@@ -74,7 +40,7 @@ exports.calculateCosineSimilarity = (vecA, vecB) => {
 };
 
 // -------------------------------------------------------------
-// 6. UUID v4 Format Guard
+// 3. UUID v4 Format Guard
 // -------------------------------------------------------------
 exports.isValidUUID = (uuid) => {
   const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

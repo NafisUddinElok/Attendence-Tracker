@@ -355,10 +355,16 @@ class _StudentCoursesScreenState extends State<StudentCoursesScreen> with Single
                           onPressed: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const StudentAttendanceScreen()),
+                              MaterialPageRoute(
+                                builder: (context) => StudentAttendanceScreen(
+                                  courseId: courseId,
+                                  courseCode: code,
+                                  courseTitle: title,
+                                ),
+                              ),
                             );
                           },
-                          icon: const Icon(Icons.qr_code_scanner, size: 16),
+                          icon: const Icon(Icons.location_on_outlined, size: 16),
                           label: const Text('Give Attendance', style: TextStyle(fontSize: 13)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green.shade700,

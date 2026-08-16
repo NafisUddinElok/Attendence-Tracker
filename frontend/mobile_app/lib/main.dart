@@ -3,7 +3,6 @@ import 'screens/auth/splash_screen.dart';
 import 'screens/courses/student_courses_screen.dart';
 import 'screens/courses/teacher_courses_screen.dart';
 import 'screens/face_register_screen.dart';
-import 'screens/student_attendance_screen.dart';
 import 'screens/student_history_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/app_config.dart';
@@ -92,7 +91,7 @@ class RoleSelectionHomeScreen extends StatelessWidget {
               context: context,
               icon: Icons.class_outlined,
               title: 'Manage Courses & Start Sessions',
-              subtitle: 'Create courses, start dynamic QR sessions & view reports',
+              subtitle: 'Create courses, start geofenced live sessions & view reports',
               color: Colors.indigo,
               onTap: () => Navigator.push(
                 context,
@@ -120,12 +119,16 @@ class RoleSelectionHomeScreen extends StatelessWidget {
             _buildHubTile(
               context: context,
               icon: Icons.camera_alt_outlined,
-              title: 'Mark 5-Step Attendance',
-              subtitle: 'Face scan, eye blink liveness, and dynamic QR scanner',
+              title: 'Mark Attendance',
+              subtitle: 'Face scan + eye blink liveness, then geofence check-in',
               color: Colors.green.shade700,
               onTap: () => Navigator.push(
+                // No standalone entry point anymore — attendance is always
+                // tied to a specific course's live session, so this opens
+                // the course list where "Give Attendance" carries the
+                // courseId straight into StudentAttendanceScreen.
                 context,
-                MaterialPageRoute(builder: (context) => const StudentAttendanceScreen()),
+                MaterialPageRoute(builder: (context) => const StudentCoursesScreen()),
               ),
             ),
             const SizedBox(height: 10),

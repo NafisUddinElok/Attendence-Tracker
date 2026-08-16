@@ -19,7 +19,7 @@ class _AngleStep {
   final String instruction;
   List<double>? embedding;
 
-  _AngleStep({required this.id, required this.label, required this.instruction, this.embedding});
+  _AngleStep({required this.id, required this.label, required this.instruction});
 }
 
 class FaceRegisterScreen extends StatefulWidget {
@@ -60,6 +60,18 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
   int _stableGoodFrames = 0;
   static const int _framesNeededForCapture = 2; // ~2 * 700ms ≈ 1.4s held steady
 
+  // Re-entrancy guard for the guide-loop sampler. _sampleGuidance() takes a
+  // real photo (takePicture()) which regularly runs longer than the 700ms
+  // timer tick. Without this guard, the next tick fires while the previous
+  // takePicture() is still in flight, the camera plugin throws
+  // "capture already active", _sampleGuidance()'s catch block turns that
+  // into an "ok: false", and _stableGoodFrames keeps getting reset to 0 —
+  // so a perfectly still, perfectly straight face can never accumulate two
+  // good frames in a row and registration looks stuck on "detecting"
+  // forever. This was the actual cause of straight/front pose never
+  // completing.
+  bool _isSampling = false;
+
   _AngleStep get _current => _steps[_currentIndex];
   bool get _allCaptured => _steps.every((s) => s.embedding != null);
 
@@ -97,8 +109,18 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
     _guideTimer = Timer.periodic(const Duration(milliseconds: 700), (_) async {
       if (!mounted || _isProcessing || _isSubmitting || _allCaptured) return;
       if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+      // Skip this tick entirely if the previous sample's takePicture() is
+      // still running — letting them overlap is what caused the stuck
+      // "not detecting" behaviour.
+      if (_isSampling) return;
 
-      final result = await _sampleGuidance();
+      _isSampling = true;
+      ({bool ok, String message}) result;
+      try {
+        result = await _sampleGuidance();
+      } finally {
+        _isSampling = false;
+      }
       if (!mounted || _allCaptured) return;
 
       setState(() {
@@ -120,7 +142,7 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
 
   Future<({bool ok, String message})> _sampleGuidance() async {
     try {
-      final picture = await _cameraController!.takePicture();
+      final picture = await _cameraController!.takePicture().timeout(const Duration(seconds: 3));
       final face = await _biometricService.detectSingleFace(picture.path);
 
       if (face == null) {
@@ -142,20 +164,25 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
         if (ratio > 0.78) return (ok: false, message: 'Move back a little');
       }
 
+      // Slightly widened from the original ±12 / 15-45 windows — those were
+      // tight enough that a genuinely straight, still face could sit just
+      // outside the accepted range on some devices and never register as
+      // "ok". This keeps the pose meaningfully distinct per step while
+      // giving real students realistic margin to land inside it.
       final angleY = face.headEulerAngleY ?? 0;
       switch (_current.id) {
         case _AngleId.front:
-          if (angleY.abs() > 12) {
+          if (angleY.abs() > 18) {
             return (ok: false, message: _current.instruction);
           }
           break;
         case _AngleId.left:
-          if (angleY < 15 || angleY > 45) {
+          if (angleY < 10 || angleY > 50) {
             return (ok: false, message: _current.instruction);
           }
           break;
         case _AngleId.right:
-          if (angleY > -15 || angleY < -45) {
+          if (angleY > -10 || angleY < -50) {
             return (ok: false, message: _current.instruction);
           }
           break;

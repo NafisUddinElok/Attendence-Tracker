@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -12,10 +11,19 @@ import '../services/device_service.dart';
 import '../services/face_embedding_service.dart';
 import '../services/app_config.dart';
 
-enum VerificationStep { faceScan, qrScan, verifying, success, failed }
+enum VerificationStep { faceScan, verifying, success, failed }
 
 class StudentAttendanceScreen extends StatefulWidget {
-  const StudentAttendanceScreen({super.key});
+  final String courseId;
+  final String courseCode;
+  final String courseTitle;
+
+  const StudentAttendanceScreen({
+    super.key,
+    required this.courseId,
+    required this.courseCode,
+    required this.courseTitle,
+  });
 
   @override
   State<StudentAttendanceScreen> createState() => _StudentAttendanceScreenState();
@@ -33,11 +41,10 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   String _statusMessage = 'Look directly into the camera';
   String _errorMessage = '';
 
-  // True when the *last* failure was a network/connectivity problem (never
-  // reached the server, or timed out) rather than the server actually
-  // rejecting the attempt. This changes what "retry" should do: a network
+  // True when the *last* failure was a network/connectivity problem
+  // rather than the server actually rejecting the attempt. A network
   // blip should just resubmit the exact same payload, not force the
-  // student through face capture + QR scan again.
+  // student through face capture again.
   bool _isNetworkFailure = false;
 
   List<double>? _extractedEmbedding;
@@ -46,31 +53,37 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
 
   // Auto-capture: samples the camera periodically while on the face-scan
   // step and auto-triggers verification once a good, stable frame has been
-  // seen for ~1 second — no manual button tap needed. The manual button
-  // still exists as a fallback (e.g. lighting makes auto-detection flaky).
+  // seen for ~1 second — no manual button tap needed.
   Timer? _autoCaptureTimer;
   int _stableGoodFrames = 0;
   static const int _framesNeededForAutoCapture = 2; // ~2 * 650ms ≈ 1.3s
   bool _autoCaptureArmed = true;
 
-  // GPS is pre-fetched in parallel with the face scan (instead of only
-  // being requested after the QR scan) so there's no dead time waiting on
-  // a location fix once the student is ready to submit.
+  // Re-entrancy guard for the auto-capture sampler — same fix as in
+  // face_register_screen.dart. _sampleFrameQuality() takes a real photo,
+  // which can run longer than the 650ms timer tick; without this guard the
+  // next tick starts a second takePicture() while the first is still in
+  // flight, the camera plugin throws, and a perfectly still straight face
+  // never accumulates two consecutive good frames.
+  bool _isSamplingFrame = false;
+
+  // GPS is pre-fetched in parallel with the face scan so there's no dead
+  // time waiting on a location fix once the student is ready to submit.
   Position? _prefetchedPosition;
   Future<Position>? _locationFetchInFlight;
 
   // Cached last-submitted payload so a network-failure retry can resubmit
-  // without re-running face capture or re-scanning the QR code.
-  Map<String, dynamic>? _lastQrData;
+  // without re-running face capture.
   Position? _lastPosition;
   String? _lastDeviceId;
+  String? _lastSessionId;
   String? _lastScannedBleUuid;
 
   @override
   void initState() {
     super.initState();
     _initFaceCamera();
-    _prefetchLocation(); // runs in parallel with face scan, not after QR scan
+    _prefetchLocation(); // runs in parallel with face scan
   }
 
   // -------------------------------------------------------------
@@ -83,7 +96,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        return; // surfaced again (and re-requested) at the QR step if still missing
+        return; // re-requested at submit time if still missing
       }
       final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       _prefetchedPosition = position;
@@ -112,7 +125,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   }
 
   // -------------------------------------------------------------
-  // STEP 1 & 2: Front Camera & Face Liveness Verification
+  // STEP 1: Front Camera & Face Liveness Verification
   // -------------------------------------------------------------
   Future<void> _initFaceCamera() async {
     await _biometricService.init();
@@ -137,17 +150,23 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   /// Periodically samples the camera while on the face-scan step. Once a
   /// well-framed, both-eyes-open single face has been seen for a couple of
   /// consecutive samples in a row, it auto-triggers the same capture path
-  /// as the manual button — the student never has to tap anything if
-  /// they're already holding still and framed correctly.
+  /// as the manual button.
   void _startAutoCaptureLoop() {
     _autoCaptureTimer?.cancel();
     _autoCaptureTimer = Timer.periodic(const Duration(milliseconds: 650), (_) async {
       if (!mounted || !_autoCaptureArmed) return;
       if (_currentStep != VerificationStep.faceScan) return;
       if (_isProcessingFrame) return;
+      if (_isSamplingFrame) return;
       if (_cameraController == null || !_cameraController!.value.isInitialized) return;
 
-      final isGoodFrame = await _sampleFrameQuality();
+      _isSamplingFrame = true;
+      bool isGoodFrame;
+      try {
+        isGoodFrame = await _sampleFrameQuality();
+      } finally {
+        _isSamplingFrame = false;
+      }
       if (!mounted || _currentStep != VerificationStep.faceScan) return;
 
       if (isGoodFrame) {
@@ -169,7 +188,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   /// the actual capture-and-verify path takes its own fresh picture.
   Future<bool> _sampleFrameQuality() async {
     try {
-      final picture = await _cameraController!.takePicture();
+      final picture = await _cameraController!.takePicture().timeout(const Duration(seconds: 3));
       final face = await _biometricService.detectSingleFace(picture.path);
       if (face == null) return false;
       final leftEye = face.leftEyeOpenProbability ?? 1.0;
@@ -218,16 +237,13 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
       _extractedEmbedding = embedding;
       _livenessPassed = true;
 
-      // Dispose selfie camera before opening QR Scanner
+      // Dispose selfie camera, then go straight to geofence/device
+      // verification — no QR scan step anymore.
       await _cameraController?.dispose();
       _cameraController = null;
       _autoCaptureTimer?.cancel();
 
-      setState(() {
-        _currentStep = VerificationStep.qrScan;
-        _isProcessingFrame = false;
-        _statusMessage = "Point camera at teacher's live QR code";
-      });
+      await _lookupActiveSessionAndSubmit();
     } catch (e) {
       _resumeAutoCapture("Couldn't process the camera image. Try again.");
     }
@@ -244,83 +260,105 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   }
 
   // -------------------------------------------------------------
-  // STEP 3, 4 & 5: QR Code Scan + GPS + Hardware Binding Submission
+  // STEP 2: Find the teacher's live session for this course, then
+  // submit GPS + device + face for geofence-based verification.
+  // (Replaces the old QR scan — the session is looked up by course
+  // instead of being read out of a rotating QR code.)
   // -------------------------------------------------------------
-  Future<void> _onQrCodeScanned(BarcodeCapture capture) async {
-    if (_currentStep != VerificationStep.qrScan) return;
-
-    final List<Barcode> barcodes = capture.barcodes;
-    if (barcodes.isEmpty) return;
-
-    final rawCode = barcodes.first.rawValue;
-    if (rawCode == null || rawCode.isEmpty) return;
-
+  Future<void> _lookupActiveSessionAndSubmit() async {
     setState(() {
       _currentStep = VerificationStep.verifying;
-      _statusMessage = 'Reading QR code...';
+      _statusMessage = 'Looking for a live session for ${widget.courseCode}...';
     });
 
     try {
-      // 1. Parse QR JSON Payload { sessionId, token, bleUuid }
-      final Map<String, dynamic> qrData = jsonDecode(rawCode);
-      final String? expectedBleUuid = qrData['bleUuid'];
+      final baseUrl = await AppConfig.getBaseUrl();
+      final jwtToken = await _storage.read(key: 'jwt_token');
 
-      // 2. GPS — usually already available from the pre-fetch that started
-      // back when the face scan began, so this resolves instantly.
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/attendance/session/active/${widget.courseId}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwtToken',
+        },
+      ).timeout(const Duration(seconds: 8));
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        setState(() {
+          _currentStep = VerificationStep.failed;
+          _isNetworkFailure = false;
+          _errorMessage = body['message'] ??
+              'No live attendance session is running for this course right now.';
+        });
+        return;
+      }
+
+      final session = body['session'];
+      final String sessionId = session['id'];
+      final String? bleUuid = session['bleUuid'];
+
+      if (body['alreadyMarked'] == true) {
+        setState(() {
+          _currentStep = VerificationStep.failed;
+          _isNetworkFailure = false;
+          _errorMessage = 'Attendance already marked for this session.';
+        });
+        return;
+      }
+
       setState(() => _statusMessage = 'Getting your location...');
       final Position position = await _getLocation();
 
-      // 3. Capture Hardware Device UUID
       final String deviceId = await DeviceService.getDeviceId();
 
-      // 3b. If this session opted into Bluetooth proximity checking, scan
-      // for the teacher's beacon before submitting. If the session didn't
-      // enable BLE, expectedBleUuid is null and we skip this entirely.
+      // If this session opted into Bluetooth proximity checking, scan for
+      // the teacher's beacon before submitting.
       String? scannedBleUuid;
-      if (expectedBleUuid != null && expectedBleUuid.isNotEmpty) {
+      if (bleUuid != null && bleUuid.isNotEmpty) {
         setState(() => _statusMessage = 'Scanning for classroom Bluetooth beacon...');
-        scannedBleUuid = await _scanForBleBeacon(expectedBleUuid);
+        scannedBleUuid = await _scanForBleBeacon(bleUuid);
       }
 
       await _submitVerification(
-        qrData: qrData,
+        sessionId: sessionId,
         position: position,
         deviceId: deviceId,
         scannedBleUuid: scannedBleUuid,
       );
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _currentStep = VerificationStep.failed;
-        _isNetworkFailure = false;
-        _errorMessage = 'That QR code could not be read. Point the camera at the live QR code and try again.';
+        _isNetworkFailure = true;
+        _errorMessage = "Couldn't reach the server. Check your connection and tap Retry.";
       });
     }
   }
 
-  /// Submits (or resubmits) the verification payload. Split out from
-  /// _onQrCodeScanned so a network-failure retry can call this directly
-  /// with the cached payload, without re-scanning the QR or redoing the
-  /// face capture.
+  /// Submits (or resubmits) the verification payload. Split out so a
+  /// network-failure retry can call this directly with the cached
+  /// payload, without re-running the face capture.
   Future<void> _submitVerification({
-    required Map<String, dynamic> qrData,
+    required String sessionId,
     required Position position,
     required String deviceId,
     String? scannedBleUuid,
   }) async {
     // Cache in case this attempt fails on the network and needs a retry.
-    _lastQrData = qrData;
+    _lastSessionId = sessionId;
     _lastPosition = position;
     _lastDeviceId = deviceId;
     _lastScannedBleUuid = scannedBleUuid;
 
     setState(() {
       _currentStep = VerificationStep.verifying;
-      _statusMessage = 'Verifying location, device & TOTP token...';
+      _statusMessage = 'Verifying location, device & face match...';
     });
 
     final requestBody = jsonEncode({
-      'sessionId': qrData['sessionId'],
-      'token': qrData['token'],
+      'sessionId': sessionId,
       'deviceId': deviceId,
       'lat': position.latitude,
       'lng': position.longitude,
@@ -366,10 +404,9 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      // Genuinely couldn't reach the server (offline, DNS failure, dropped
-      // connection mid-request) — not the same as the server rejecting the
-      // attempt, so the retry path resubmits the same payload instead of
-      // sending the student back through face capture.
+      // Genuinely couldn't reach the server — not the same as the server
+      // rejecting the attempt, so the retry path resubmits the same
+      // payload instead of sending the student back through face capture.
       setState(() {
         _currentStep = VerificationStep.failed;
         _isNetworkFailure = true;
@@ -380,31 +417,30 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
 
   /// Resubmits the exact last payload — used for network-failure retries.
   Future<void> _retryLastSubmission() async {
-    if (_lastQrData == null || _lastPosition == null || _lastDeviceId == null) {
-      // Shouldn't happen (retry is only shown when these are set), but
-      // fall back to a full restart rather than crash.
+    if (_lastSessionId == null || _lastPosition == null || _lastDeviceId == null) {
       _restartFromFaceScan();
       return;
     }
     await _submitVerification(
-      qrData: _lastQrData!,
+      sessionId: _lastSessionId!,
       position: _lastPosition!,
       deviceId: _lastDeviceId!,
       scannedBleUuid: _lastScannedBleUuid,
     );
   }
 
-  /// Goes back to the QR-scan step only — reuses the already-captured face
-  /// embedding + liveness result. Used for failures that aren't about the
-  /// face (expired QR token, outside geofence, BLE beacon not found,
-  /// duplicate submission) so the student isn't forced to redo face capture
-  /// for a problem that had nothing to do with their face.
-  void _rescanQrOnly() {
+  /// Re-runs the session lookup + GPS/device/BLE submission only — reuses
+  /// the already-captured face embedding + liveness result. Used for
+  /// failures that aren't about the face (outside geofence, session
+  /// expired, BLE beacon not found, duplicate submission) so the student
+  /// isn't forced to redo face capture for a problem that had nothing to
+  /// do with their face.
+  void _retryLocationOnly() {
     setState(() {
-      _currentStep = VerificationStep.qrScan;
       _isNetworkFailure = false;
-      _statusMessage = "Point camera at teacher's live QR code";
+      _statusMessage = 'Checking again...';
     });
+    _lookupActiveSessionAndSubmit();
   }
 
   void _restartFromFaceScan() {
@@ -475,7 +511,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Mark Attendance'),
+        title: Text('Mark Attendance — ${widget.courseCode}'),
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
       ),
@@ -490,7 +526,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
               children: [
                 _buildStepBadge('1. Face', _currentStep == VerificationStep.faceScan),
                 const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white54),
-                _buildStepBadge('2. QR Scan', _currentStep == VerificationStep.qrScan),
+                _buildStepBadge('2. Location', _currentStep == VerificationStep.verifying),
                 const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white54),
                 _buildStepBadge('3. Verified', _currentStep == VerificationStep.success),
               ],
@@ -579,9 +615,9 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: _rescanQrOnly,
+                        onPressed: _retryLocationOnly,
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
-                        child: const Text('Scan QR Again'),
+                        child: const Text('Try Again'),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -640,11 +676,6 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
               ),
             ),
           ],
-        );
-
-      case VerificationStep.qrScan:
-        return MobileScanner(
-          onDetect: _onQrCodeScanned,
         );
 
       case VerificationStep.verifying:

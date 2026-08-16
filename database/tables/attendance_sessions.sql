@@ -12,10 +12,6 @@ CREATE TABLE IF NOT EXISTS attendance_sessions (
     center_lng DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     radius_meters INTEGER NOT NULL DEFAULT 50,
 
-    -- Dynamic QR / TOTP
-    totp_secret VARCHAR(64) NOT NULL
-        DEFAULT encode(gen_random_bytes(20), 'hex'),
-
     -- Optional BLE verification
     ble_uuid VARCHAR(64),
 
