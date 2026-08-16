@@ -139,15 +139,30 @@ exports.login = async (req, res) => {
 // STUDENT: Register Device ID & Face Embedding Vector
 // -------------------------------------------------------------
 exports.registerBiometrics = async (req, res) => {
-  const { deviceId, faceEmbedding } = req.body;
+  const { deviceId, faceEmbeddings, faceEmbedding } = req.body;
   const studentId = req.user.id;
 
   if (!deviceId || typeof deviceId !== 'string' || deviceId.trim() === '') {
     return res.status(400).json({ message: 'A valid deviceId is required.' });
   }
 
-  if (!Array.isArray(faceEmbedding) || faceEmbedding.length === 0) {
-    return res.status(400).json({ message: 'A valid faceEmbedding float array is required.' });
+  // Preferred: multiple per-angle embeddings (front/left/right), stored and
+  // matched separately at verify time instead of being averaged into one
+  // blurred reference vector. `faceEmbedding` (singular) is still accepted
+  // for backward compatibility with older app builds.
+  let embeddingsToStore;
+  if (Array.isArray(faceEmbeddings) && faceEmbeddings.length > 0) {
+    const allValid = faceEmbeddings.every(
+      (v) => Array.isArray(v) && v.length > 0 && v.every((n) => typeof n === 'number')
+    );
+    if (!allValid) {
+      return res.status(400).json({ message: 'faceEmbeddings must be an array of float arrays.' });
+    }
+    embeddingsToStore = faceEmbeddings;
+  } else if (Array.isArray(faceEmbedding) && faceEmbedding.length > 0) {
+    embeddingsToStore = [faceEmbedding];
+  } else {
+    return res.status(400).json({ message: 'A valid faceEmbeddings array is required.' });
   }
 
   try {
@@ -167,14 +182,14 @@ exports.registerBiometrics = async (req, res) => {
       });
     }
 
-    // Save Face Embedding (as JSONB) and Device ID
+    // Save Face Embeddings (array of per-angle vectors, as JSONB) and Device ID
     await db.query(
       `UPDATE students 
        SET device_id = $1, 
            face_embedding = $2, 
            is_device_locked = TRUE 
        WHERE id = $3`,
-      [deviceId.trim(), JSON.stringify(faceEmbedding), studentId]
+      [deviceId.trim(), JSON.stringify(embeddingsToStore), studentId]
     );
 
     res.status(200).json({

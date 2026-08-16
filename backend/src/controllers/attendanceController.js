@@ -11,6 +11,14 @@ const MAX_RADIUS_METERS = 500;
 const MIN_DURATION_MINUTES = 1;
 const MAX_DURATION_MINUTES = 180;
 
+// GPS is never exact — phones report an `accuracy` (their own estimated
+// error radius, often 20-50m+ indoors/near buildings). Checking raw
+// distance > radius with zero tolerance meant a student standing well
+// inside the classroom could still get rejected purely from GPS drift.
+// We add a tolerance capped at this value so a genuinely bad/spoofable
+// accuracy reading (e.g. 300m) can't be used to cheat the geofence.
+const MAX_ACCURACY_TOLERANCE_METERS = 30;
+
 // -------------------------------------------------------------
 // TEACHER: Start Live Attendance Session (QR removed — geofence only)
 // -------------------------------------------------------------
@@ -243,6 +251,7 @@ exports.verifyAttendance = async (req, res) => {
     deviceId,
     lat,
     lng,
+    accuracy,
     isMockLocation,
     livenessPassed,
     faceEmbedding,
@@ -299,7 +308,13 @@ exports.verifyAttendance = async (req, res) => {
       parseFloat(lng)
     );
 
-    if (distanceMeters > session.radius_meters) {
+    const accuracyTolerance = Math.min(
+      Number(accuracy) || 0,
+      MAX_ACCURACY_TOLERANCE_METERS
+    );
+    const effectiveRadius = session.radius_meters + Math.max(accuracyTolerance, 0);
+
+    if (distanceMeters > effectiveRadius) {
       return res.status(400).json({
         message: `You are outside the classroom boundary (${Math.round(distanceMeters)}m away).`,
       });
@@ -363,11 +378,24 @@ exports.verifyAttendance = async (req, res) => {
     let similarityScore = null;
 
     if (student.face_embedding && Array.isArray(faceEmbedding)) {
-      const registeredEmbedding = typeof student.face_embedding === 'string'
+      const stored = typeof student.face_embedding === 'string'
         ? JSON.parse(student.face_embedding)
         : student.face_embedding;
 
-      similarityScore = calculateCosineSimilarity(registeredEmbedding, faceEmbedding);
+      // `stored` is either:
+      //  - a flat array of numbers (legacy: one averaged reference vector), or
+      //  - an array of arrays (current: one vector per registered angle).
+      // Normalize to a list of candidate vectors either way, then match
+      // the live selfie against the BEST of them instead of a single
+      // blended/averaged vector — averaging front+left+right pulled the
+      // reference away from what a straight-on attendance selfie looks
+      // like, which is what was causing real faces to fail the threshold.
+      const isNested = Array.isArray(stored[0]);
+      const candidateEmbeddings = isNested ? stored : [stored];
+
+      similarityScore = Math.max(
+        ...candidateEmbeddings.map((cand) => calculateCosineSimilarity(cand, faceEmbedding))
+      );
 
       if (similarityScore < 0.75) {
         try {
