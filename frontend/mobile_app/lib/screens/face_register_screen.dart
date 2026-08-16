@@ -259,29 +259,26 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
     _startGuideLoop();
   }
 
-  /// Combines the 3 per-angle embeddings into a single registered
-  /// reference vector: normalize each to unit length (cosine similarity is
-  /// scale-invariant, so this weights each angle equally regardless of
-  /// lighting-driven magnitude differences), average them, then
-  /// re-normalize the result.
-  List<double> _combineEmbeddings() {
-    final vectors = _steps.map((s) => s.embedding!).toList();
-    final dim = vectors.first.length;
-
+  /// Returns the 3 per-angle embeddings as separate normalized vectors,
+  /// rather than blending them into one averaged vector.
+  ///
+  /// IMPORTANT: we used to average the front/left/right embeddings into a
+  /// single reference vector. That destroys match quality: MobileFaceNet
+  /// expects a roughly frontal, aligned face, and the left/right captures
+  /// sit 10-50 degrees off-angle. Averaging pulled the stored reference
+  /// away from what a straight-on attendance selfie actually produces, so
+  /// a genuine student's face could legitimately fail the similarity
+  /// threshold at verify time. Storing all 3 separately and matching
+  /// against the best of them (done server-side) keeps the anti-spoof
+  /// benefit of multi-angle capture without hurting real matches.
+  List<List<double>> _collectEmbeddings() {
     List<double> normalize(List<double> v) {
       final mag = _vectorMagnitude(v);
       if (mag == 0) return v;
       return v.map((x) => x / mag).toList();
     }
 
-    final normalized = vectors.map(normalize).toList();
-    final avg = List<double>.filled(dim, 0.0);
-    for (final v in normalized) {
-      for (int i = 0; i < dim; i++) {
-        avg[i] += v[i] / normalized.length;
-      }
-    }
-    return normalize(avg);
+    return _steps.map((s) => normalize(s.embedding!)).toList();
   }
 
   double _vectorMagnitude(List<double> v) {
@@ -299,7 +296,7 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
     });
 
     try {
-      final combinedEmbedding = _combineEmbeddings();
+      final embeddings = _collectEmbeddings();
       final deviceId = await DeviceService.getDeviceId();
 
       final baseUrl = await AppConfig.getBaseUrl();
@@ -313,7 +310,10 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
         },
         body: jsonEncode({
           'deviceId': deviceId,
-          'faceEmbedding': combinedEmbedding,
+          // Sends all 3 per-angle vectors (front/left/right) instead of one
+          // blended average — backend matches attendance-time selfies
+          // against the best of these, not a smeared composite.
+          'faceEmbeddings': embeddings,
         }),
       );
 

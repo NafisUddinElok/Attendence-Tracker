@@ -362,6 +362,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
       'deviceId': deviceId,
       'lat': position.latitude,
       'lng': position.longitude,
+      'accuracy': position.accuracy,
       'isMockLocation': position.isMocked,
       'livenessPassed': _livenessPassed,
       'faceEmbedding': _extractedEmbedding,
