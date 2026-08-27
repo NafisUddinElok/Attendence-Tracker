@@ -1,0 +1,42 @@
+IMPORTANT — Android setup for location permission
+====================================================
+
+After running `flutter create .` inside this project folder (to generate the
+android/ and ios/ native folders), add the following to:
+
+android/app/src/main/AndroidManifest.xml
+(inside the <manifest> tag, above <application>):
+
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+Also set minSdkVersion to at least 21 in android/app/build.gradle:
+
+    defaultConfig {
+        minSdkVersion 21
+        ...
+    }
+
+----------------------------------------------------
+iOS setup (ios/Runner/Info.plist)
+----------------------------------------------------
+Add these keys inside the outermost <dict>:
+
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>This app needs your location to verify class attendance.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>This app needs your location to verify class attendance.</string>
+
+----------------------------------------------------
+How to get this project running
+----------------------------------------------------
+1. Copy all files from this "attendance_app" folder into a fresh Flutter
+   project: run `flutter create attendance_app`, then copy `lib/` and
+   `pubspec.yaml` over (overwrite).
+2. Run `flutter pub get`
+3. Apply the manifest/plist changes above.
+4. Update lib/config/api_config.dart -> baseUrl to point to your running
+   Express backend (10.0.2.2 for Android emulator, your LAN IP for a real
+   device, localhost for iOS simulator).
+5. Run `flutter run`

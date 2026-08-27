@@ -1,203 +1,58 @@
-const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { User } = require('../models');
 
-// Generate JWT Token
-const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  });
-};
-
-// -------------------------------------------------------------
-// REGISTER USER (Student / Teacher)
-// -------------------------------------------------------------
+// POST /auth/register  (admin creates teacher/student accounts, or self-signup depending on your policy)
 exports.register = async (req, res) => {
-  const { role, fullName, email, password, code, department, session, designation } = req.body;
-
-  if (!role || !fullName || !email || !password || !code) {
-    return res.status(400).json({ message: 'Please provide all required fields' });
-  }
-
   try {
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+    const { name, email, password, role, registration_number, phone } = req.body;
 
-    if (role.toUpperCase() === 'STUDENT') {
-      // Check 10-digit SUST Reg No
-      if (!/^\d{10}$/.test(code)) {
-        return res.status(400).json({ message: 'SUST Registration number must be 10 digits' });
-      }
+    const existing = await User.findOne({ where: { email } });
+    if (existing) return res.status(400).json({ message: 'Email already in use' });
 
-      // Check if student exists
-      const existing = await db.query(
-        'SELECT id FROM students WHERE email = $1 OR registration_no = $2',
-        [email, code]
-      );
-      if (existing.rows.length > 0) {
-        return res.status(400).json({ message: 'Student with this email or reg no already exists' });
-      }
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Insert Student
-      const newStudent = await db.query(
-        `INSERT INTO students (full_name, email, password_hash, registration_no, department, session)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id, full_name, email, registration_no, department, session`,
-        [fullName, email, passwordHash, code, department || null, session || null]
-      );
+    const user = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      role,
+      registration_number: role === 'student' ? registration_number : null,
+      phone,
+    });
 
-      const user = newStudent.rows[0];
-      const token = generateToken(user.id, 'STUDENT');
-
-      return res.status(201).json({
-        message: 'Student registered successfully',
-        token,
-        user: { ...user, role: 'STUDENT' },
-      });
-
-    } else if (role.toUpperCase() === 'TEACHER') {
-      // Check if teacher exists
-      const existing = await db.query(
-        'SELECT id FROM teachers WHERE email = $1 OR teacher_id = $2',
-        [email, code]
-      );
-      if (existing.rows.length > 0) {
-        return res.status(400).json({ message: 'Teacher with this email or teacher ID already exists' });
-      }
-
-      // Insert Teacher
-      const newTeacher = await db.query(
-        `INSERT INTO teachers (full_name, email, password_hash, teacher_id, department, designation)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id, full_name, email, teacher_id, department, designation`,
-        [fullName, email, passwordHash, code, department || null, designation || null]
-      );
-
-      const user = newTeacher.rows[0];
-      const token = generateToken(user.id, 'TEACHER');
-
-      return res.status(201).json({
-        message: 'Teacher registered successfully',
-        token,
-        user: { ...user, role: 'TEACHER' },
-      });
-
-    } else {
-      return res.status(400).json({ message: 'Invalid role specified' });
-    }
-  } catch (error) {
-    console.error('Registration Error:', error);
-    res.status(500).json({ message: 'Server error during registration' });
+    res.status(201).json({
+      message: 'User created successfully',
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Registration failed', error: err.message });
   }
 };
 
-// -------------------------------------------------------------
-// LOGIN USER (Student / Teacher)
-// -------------------------------------------------------------
+// POST /auth/login
 exports.login = async (req, res) => {
-  const { role, email, password } = req.body;
-
-  if (!role || !email || !password) {
-    return res.status(400).json({ message: 'Please provide role, email, and password' });
-  }
-
   try {
-    const table = role.toUpperCase() === 'TEACHER' ? 'teachers' : 'students';
-    
-    // Find user by email
-    const result = await db.query(`SELECT * FROM ${table} WHERE email = $1`, [email]);
-    if (result.rows.length === 0) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
+    const { email, password } = req.body;
 
-    const user = result.rows[0];
+    const user = await User.findOne({ where: { email } });
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Verify Password
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
 
-    // Remove password hash from response
-    delete user.password_hash;
+    const token = jwt.sign(
+      { id: user.id, role: user.role, name: user.name },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
-    const token = generateToken(user.id, role.toUpperCase());
-
-    res.status(200).json({
+    res.json({
       message: 'Login successful',
       token,
-      user: { ...user, role: role.toUpperCase() },
+      user: { id: user.id, name: user.name, role: user.role, email: user.email },
     });
-  } catch (error) {
-    console.error('Login Error:', error);
-    res.status(500).json({ message: 'Server error during login' });
-  }
-};
-
-
-// -------------------------------------------------------------
-// STUDENT: Register Device ID & Face Embedding Vector
-// -------------------------------------------------------------
-exports.registerBiometrics = async (req, res) => {
-  const { deviceId, faceEmbeddings, faceEmbedding } = req.body;
-  const studentId = req.user.id;
-
-  if (!deviceId || typeof deviceId !== 'string' || deviceId.trim() === '') {
-    return res.status(400).json({ message: 'A valid deviceId is required.' });
-  }
-
-  // Preferred: multiple per-angle embeddings (front/left/right), stored and
-  // matched separately at verify time instead of being averaged into one
-  // blurred reference vector. `faceEmbedding` (singular) is still accepted
-  // for backward compatibility with older app builds.
-  let embeddingsToStore;
-  if (Array.isArray(faceEmbeddings) && faceEmbeddings.length > 0) {
-    const allValid = faceEmbeddings.every(
-      (v) => Array.isArray(v) && v.length > 0 && v.every((n) => typeof n === 'number')
-    );
-    if (!allValid) {
-      return res.status(400).json({ message: 'faceEmbeddings must be an array of float arrays.' });
-    }
-    embeddingsToStore = faceEmbeddings;
-  } else if (Array.isArray(faceEmbedding) && faceEmbedding.length > 0) {
-    embeddingsToStore = [faceEmbedding];
-  } else {
-    return res.status(400).json({ message: 'A valid faceEmbeddings array is required.' });
-  }
-
-  try {
-    // Check if student's device is already locked to another phone
-    const existing = await db.query(
-      'SELECT device_id, is_device_locked FROM students WHERE id = $1',
-      [studentId]
-    );
-
-    if (existing.rows.length === 0) {
-      return res.status(404).json({ message: 'Student record not found.' });
-    }
-
-    if (existing.rows[0].is_device_locked && existing.rows[0].device_id !== deviceId) {
-      return res.status(403).json({
-        message: 'Device is already locked. Contact department admin to reset your registered device.',
-      });
-    }
-
-    // Save Face Embeddings (array of per-angle vectors, as JSONB) and Device ID
-    await db.query(
-      `UPDATE students 
-       SET device_id = $1, 
-           face_embedding = $2, 
-           is_device_locked = TRUE 
-       WHERE id = $3`,
-      [deviceId.trim(), JSON.stringify(embeddingsToStore), studentId]
-    );
-
-    res.status(200).json({
-      message: 'Face biometrics and primary device registered successfully!',
-      isDeviceLocked: true,
-    });
-  } catch (error) {
-    console.error('Register Biometrics Error:', error);
-    res.status(500).json({ message: 'Server error while saving biometrics.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Login failed', error: err.message });
   }
 };
