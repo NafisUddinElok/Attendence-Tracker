@@ -1,30 +1,16 @@
-const { Pool } = require('pg');
-const path = require('path');
+const { Sequelize } = require('sequelize');
+require('dotenv').config();
 
-
-// / Explicitly load .env from backend root directory
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
-
-
-
-const pool = new Pool({
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-});
-
-// Explicitly test connection on app startup
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('❌ PostgreSQL Database connection error:', err.message);
-  } else {
-    console.log('⚡ Connected to PostgreSQL Database');
-    release(); // Client release kore pool-e ferat dilam
+const sequelize = new Sequelize(
+  process.env.DB_NAME,
+  process.env.DB_USER,
+  process.env.DB_PASSWORD,
+  {
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 5432,
+    dialect: 'postgres',
+    logging: false,
   }
-});
+);
 
-module.exports = {
-  query: (text, params) => pool.query(text, params),
-};
+module.exports = sequelize;

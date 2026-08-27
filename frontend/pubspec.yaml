@@ -1,38 +1,27 @@
-name: mobile_app
-description: "SUST Attendance Tracker"
-publish_to: "none"
+name: attendance_app
+description: Location-based class attendance system (student/teacher/admin)
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.6
 
-  # Networking & Storage
-  http: ^1.2.1
-  flutter_secure_storage: ^9.0.0
-  provider: ^6.1.2
-
-  # Device Hardware UUID
-  device_info_plus: ^10.1.0
-
-  # Camera, Face Detection & TFLite
-  camera: ^0.11.0+1
-  google_mlkit_face_detection: ^0.11.0
-  tflite_flutter: ^0.12.1
-  image: ^4.2.0
-
-  # Location & Geofencing
-  geolocator: ^12.0.0
-  permission_handler: ^11.3.1
+  http: ^1.2.1                 # API calls
+  shared_preferences: ^2.2.3   # store JWT token + role locally
+  geolocator: ^12.0.0          # GPS location for attendance
+  provider: ^6.1.2             # simple state management
+  intl: ^0.19.0                # date formatting
+  url_launcher: ^6.3.0         # open CSV download links in browser
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
-  

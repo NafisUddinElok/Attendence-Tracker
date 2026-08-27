@@ -1,24 +1,24 @@
 {
-  "name": "attendance-tracker-backend",
+  "name": "attendance-backend",
   "version": "1.0.0",
-  "description": "Backend API for Attendance Tracker",
-  "main": "src/server.js",
+  "description": "Attendance system backend using Express + PostgreSQL (Sequelize)",
+  "main": "server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "exceljs": "^4.4.0",
     "express": "^4.19.2",
+    "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.11.5",
-    "socket.io": "^4.8.3",
-    "socket.io-client": "^4.8.3"
+    "pg": "^8.12.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.4"
   }
 }
