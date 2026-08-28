@@ -5,7 +5,6 @@ const {
   calculateCosineSimilarity,
   generateTotpSecret,
 } = require('../utils/securityUtils');
-const attendanceService = require('../modules/attendance/attendance.service');
 
 // -------------------------------------------------------------
 // TEACHER: Start Live Attendance Session
@@ -150,38 +149,161 @@ exports.getLiveSession = async (req, res) => {
 };
 
 // -------------------------------------------------------------
-// STUDENT: Verify and Mark Attendance (Phase 6 unified engine)
+// STUDENT: Verify and Mark Attendance (5-Step Anti-Proxy Engine)
 // -------------------------------------------------------------
-// Phase 6 removes the QR + liveness checks. The 4-check pipeline
-// (device binding + mock-location + geofence + face cosine) lives
-// in attendance.service. This handler is now a thin adapter.
 exports.verifyAttendance = async (req, res) => {
-  const { sessionId, deviceId, lat, lng, isMockLocation, faceEmbedding } = req.body;
+  const {
+    sessionId,
+    token,
+    deviceId,
+    lat,
+    lng,
+    isMockLocation,
+    livenessPassed,
+    faceEmbedding,
+  } = req.body;
+
   const studentId = req.user.id;
 
   try {
-    const result = await attendanceService.markAttendance({
-      sessionId,
-      studentId,
-      deviceId,
-      lat: parseFloat(lat),
-      lng: parseFloat(lng),
-      isMockLocation: !!isMockLocation,
-      faceEmbedding,
-      io: req.io,
-    });
+    // 0. DUPLICATE ATTENDANCE GUARD FIRST
+    const duplicateCheck = await db.query(
+      'SELECT id, marked_at FROM attendance_records WHERE session_id = $1 AND student_id = $2',
+      [sessionId, studentId]
+    );
+
+    if (duplicateCheck.rows.length > 0) {
+      return res.status(400).json({
+        message: 'Attendance already marked for this session. Duplicate submissions are blocked.',
+      });
+    }
+
+    // 1. SESSION VALIDITY CHECK
+    const sessionResult = await db.query(
+      'SELECT * FROM attendance_sessions WHERE id = $1',
+      [sessionId]
+    );
+
+    if (sessionResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Attendance session not found.' });
+    }
+
+    const session = sessionResult.rows[0];
+
+    if (!session.is_active) {
+      return res.status(400).json({ message: 'Attendance session is no longer active.' });
+    }
+
+    if (new Date() > new Date(session.expires_at)) {
+      return res.status(400).json({ message: 'Attendance session has expired.' });
+    }
+
+    // 2. 15-SECOND ROTATING TOTP TOKEN CHECK
+    const isTokenValid = verifyTimeToken(session.totp_secret, token);
+    if (!isTokenValid) {
+      return res.status(400).json({
+        message: 'QR Code has expired. Please scan the current live QR code.',
+      });
+    }
+
+    // 3. MOCK GPS SPOOF CHECK
+    if (isMockLocation === true) {
+      return res.status(403).json({
+        message: 'Fake GPS / Mock Location detected. Attendance blocked.',
+      });
+    }
+
+    // 4. GEOFENCE BOUNDARY (HAVERSINE DISTANCE)
+    const distanceMeters = calculateHaversineDistance(
+      parseFloat(session.center_lat),
+      parseFloat(session.center_lng),
+      parseFloat(lat),
+      parseFloat(lng)
+    );
+
+    if (distanceMeters > session.radius_meters) {
+      return res.status(400).json({
+        message: `You are outside the classroom boundary (${Math.round(distanceMeters)}m away).`,
+      });
+    }
+
+    // 5. HARDWARE DEVICE BINDING
+    const studentResult = await db.query(
+      'SELECT id, full_name, registration_no, device_id, is_device_locked, face_embedding FROM students WHERE id = $1',
+      [studentId]
+    );
+
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Student record not found.' });
+    }
+
+    const student = studentResult.rows[0];
+
+    if (student.is_device_locked && student.device_id !== deviceId) {
+      return res.status(403).json({
+        message: 'Device verification failed. You can only give attendance from your registered primary device.',
+      });
+    }
+
+    // 6. FACE BIOMETRIC EMBEDDING (COSINE SIMILARITY >= 0.75)
+    if (!livenessPassed) {
+      return res.status(403).json({ message: 'Face liveness check failed.' });
+    }
+
+    if (student.face_embedding && Array.isArray(faceEmbedding)) {
+      const registeredEmbedding = typeof student.face_embedding === 'string'
+        ? JSON.parse(student.face_embedding)
+        : student.face_embedding;
+
+      const similarity = calculateCosineSimilarity(registeredEmbedding, faceEmbedding);
+
+      if (similarity < 0.75) {
+        return res.status(403).json({
+          message: `Face verification failed (Similarity: ${(similarity * 100).toFixed(1)}%).`,
+        });
+      }
+    }
+
+    // 7. RECORD ATTENDANCE (attendance_records only has session_id/student_id/status/marked_at)
+    const attendanceRecord = await db.query(
+      `INSERT INTO attendance_records (session_id, student_id, status)
+       VALUES ($1, $2, 'PRESENT')
+       RETURNING *`,
+      [sessionId, studentId]
+    );
+
+    // 7b. AUDIT LOG: keep the full attempt trail (device/location/similarity) separately
+    try {
+      await db.query(
+        `INSERT INTO attendance_audit_logs
+           (session_id, student_id, device_id, attempted_lat, attempted_lng, is_mock_location, similarity_score, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'SUCCESS')`,
+        [sessionId, studentId, deviceId, lat, lng, !!isMockLocation, null]
+      );
+    } catch (auditError) {
+      console.error('Audit Log Error (non-fatal):', auditError);
+    }
+
+    // 8. REAL-TIME WEBSOCKET BROADCAST TO TEACHER DASHBOARD
+    if (req.io) {
+      req.io.to(`session_${sessionId}`).emit('student_marked', {
+        studentId: student.id,
+        studentName: student.full_name,
+        regNo: student.registration_no,
+        markedAt: attendanceRecord.rows[0].marked_at,
+      });
+    }
 
     res.status(200).json({
       message: 'Attendance verified and marked successfully!',
-      attendance: result.attendance,
-      similarity: result.similarity,
+      attendance: attendanceRecord.rows[0],
     });
   } catch (error) {
-    // AppError → errorHandler serialises; only log unexpected.
-    if (!(error && error.name === 'AppError')) {
-      console.error('Verify Attendance Error:', error);
+    if (error.code === '23505') {
+      return res.status(400).json({ message: 'Attendance already recorded for this session.' });
     }
-    throw error;
+    console.error('Verify Attendance Error:', error);
+    res.status(500).json({ message: 'Server error during attendance verification.' });
   }
 };
 

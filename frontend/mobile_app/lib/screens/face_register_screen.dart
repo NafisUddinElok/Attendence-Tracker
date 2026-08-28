@@ -1,24 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
-import 'package:mobile_app/core/errors/api_exception.dart';
-import 'package:mobile_app/core/network/api_client.dart';
-import 'package:mobile_app/core/network/endpoints.dart';
-import 'package:mobile_app/core/storage/secure_storage.dart';
-import 'package:mobile_app/services/app_config.dart';
-import 'package:mobile_app/services/device_service.dart';
-import 'package:mobile_app/services/face_embedding_service.dart';
-import 'package:mobile_app/theme/app_theme.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../services/device_service.dart';
+import '../services/face_embedding_service.dart';
+import '../services/app_config.dart';
+import '../theme/app_theme.dart';
 
-/// Phase 6 — biometric enrolment.
-///
-/// Captures _kRequiredSamples distinct face photos, runs each through the
-/// 128-D mobilefacenet projector, and posts the resulting `embeddings[]`
-/// to `/api/v1/biometrics/enroll-face` together with the device id.
-///
-/// One-Student × One-Device × One-Face is enforced server-side. The
-/// client only collects the raw evidence and surfaces friendly error
-/// messages for the obvious failure modes.
 class FaceRegisterScreen extends StatefulWidget {
   const FaceRegisterScreen({super.key});
 
@@ -27,214 +16,169 @@ class FaceRegisterScreen extends StatefulWidget {
 }
 
 class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
-  static const int _kRequiredSamples = 3;
-
   CameraController? _cameraController;
-  final FaceEmbeddingService _biometrics = FaceEmbeddingService();
+  final FaceEmbeddingService _biometricService = FaceEmbeddingService();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  bool _initialising = true;
-  bool _busy = false;
-  String _statusMessage = 'Centre your face inside the frame.';
-  String _errorCode = '';
-  final List<String> _capturedPaths = <String>[];
-  final List<Face> _capturedFaces = <Face>[];
+  bool _isProcessing = false;
+  String _statusMessage = 'Place your face inside the circle';
+  int _currentStep = 0;
+
+  static const _steps = ['Detect', 'Liveness', 'Embed', 'Register'];
 
   @override
   void initState() {
     super.initState();
-    _bootstrap();
+    _initFlow();
   }
 
-  Future<void> _bootstrap() async {
-    try {
-      await _biometrics.init();
-      final cameras = await availableCameras();
-      final front = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
-      final controller = CameraController(
-        front,
-        ResolutionPreset.medium,
-        enableAudio: false,
-      );
-      await controller.initialize();
-      if (!mounted) {
-        await controller.dispose();
-        return;
-      }
-      setState(() {
-        _cameraController = controller;
-        _initialising = false;
-      });
-    } catch (e) {
-      setState(() {
-        _initialising = false;
-        _statusMessage = 'Camera unavailable.';
-        _errorCode = 'CAMERA_INIT';
-      });
-    }
+  Future<void> _initFlow() async {
+    await _biometricService.init();
+    final cameras = await availableCameras();
+    final frontCamera = cameras.firstWhere(
+      (c) => c.lensDirection == CameraLensDirection.front,
+      orElse: () => cameras.first,
+    );
+
+    _cameraController = CameraController(
+      frontCamera,
+      ResolutionPreset.medium,
+      enableAudio: false,
+    );
+
+    await _cameraController!.initialize();
+    if (mounted) setState(() {});
   }
 
-  Future<void> _onCapturePressed() async {
-    final camera = _cameraController;
-    if (_busy || camera == null || !camera.value.isInitialized) return;
-    if (_capturedPaths.length >= _kRequiredSamples) return;
-
+  Future<void> _captureAndRegister() async {
+    if (_isProcessing ||
+        _cameraController == null ||
+        !_cameraController!.value.isInitialized) return;
     setState(() {
-      _busy = true;
-      _statusMessage =
-          'Capturing sample ${_capturedPaths.length + 1} of $_kRequiredSamples';
-      _errorCode = '';
+      _isProcessing = true;
+      _statusMessage = 'Detecting face & checking quality...';
+      _currentStep = 0;
     });
 
+    setState(() => _currentStep = 1);
+
     try {
-      final picture = await camera.takePicture();
-      final face = await _biometrics.detectSingleFace(picture.path);
+      final picture = await _cameraController!.takePicture();
+
+      final face = await _biometricService.detectSingleFace(picture.path);
       if (face == null) {
         setState(() {
-          _statusMessage = 'No face or multiple faces detected.';
+          _statusMessage =
+              'No face or multiple faces detected. Keep only your face visible.';
+          _isProcessing = false;
+          _currentStep = 0;
         });
         return;
       }
-      _capturedPaths.add(picture.path);
-      _capturedFaces.add(face);
 
-      if (_capturedPaths.length >= _kRequiredSamples) {
-        await _submit();
-      } else {
+      if ((face.leftEyeOpenProbability ?? 1.0) < 0.6 ||
+          (face.rightEyeOpenProbability ?? 1.0) < 0.6) {
         setState(() {
-          _statusMessage = 'Sample ${_capturedPaths.length} captured. '
-              'Now tilt your head slightly and capture again.';
+          _statusMessage = 'Please keep both eyes clearly open.';
+          _isProcessing = false;
+          _currentStep = 1;
         });
+        return;
       }
-    } on DeviceIdUnavailable catch (e) {
+
       setState(() {
-        _statusMessage = e.message;
-        _errorCode = 'DEVICE_ID_UNAVAILABLE';
+        _statusMessage = 'Extracting facial vector embedding...';
+        _currentStep = 2;
       });
-    } catch (e) {
-      setState(() {
-        _statusMessage = 'Capture failed: $e';
-        _errorCode = 'CAPTURE_FAILED';
-      });
-    } finally {
-      if (mounted) {
+
+      final embedding =
+          await _biometricService.extractFaceEmbedding(picture.path, face);
+      if (embedding == null) {
         setState(() {
-          _busy = false;
+          _statusMessage = 'Failed to extract face vector. Please try again.';
+          _isProcessing = false;
+          _currentStep = 2;
         });
+        return;
       }
-    }
-  }
 
-  Future<void> _submit() async {
-    setState(() {
-      _statusMessage = 'Extracting face vectors...';
-      _errorCode = '';
-    });
-    final vectors = await _biometrics.extractMultipleEmbeddings(
-      _capturedPaths,
-      _capturedFaces,
-    );
-    if (vectors == null) {
-      setState(() {
-        _statusMessage = 'Could not extract quality face vectors.';
-        _errorCode = 'WEAK_FACE';
-      });
-      return;
-    }
-
-    try {
       final deviceId = await DeviceService.getDeviceId();
-      final baseUrl = await AppConfig.getBaseUrl();
-      final jwt = await SecureStorage.instance.readAccessToken();
-      final client = ApiClient(
-        baseUrl: baseUrl,
-        accessTokenProvider: () async => jwt,
-      );
-      await client.post(Endpoints.enrollFace, {
-        'deviceId': deviceId,
-        'embeddings': vectors,
-      });
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Device & face enrolled successfully.'),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      Navigator.pop(context, true);
-    } on ApiException catch (e) {
+
       setState(() {
-        _statusMessage = _mapApiError(e.code, e.message);
-        _errorCode = e.code;
+        _statusMessage = 'Securing biometrics on server...';
+        _currentStep = 3;
       });
+
+      final baseUrl = await AppConfig.getBaseUrl();
+      final token = await _storage.read(key: 'jwt_token');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/auth/register-biometrics'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'deviceId': deviceId,
+          'faceEmbedding': embedding,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('✅ Device & Face registered successfully!'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context, true);
+      } else {
+        final err = jsonDecode(response.body);
+        setState(() {
+          _statusMessage = err['message'] ?? 'Registration failed.';
+          _isProcessing = false;
+          _currentStep = 0;
+        });
+      }
     } catch (e) {
       setState(() {
-        _statusMessage = 'Enrolment failed: $e';
-        _errorCode = 'UNKNOWN';
+        _statusMessage = 'Error during registration: $e';
+        _isProcessing = false;
+        _currentStep = 0;
       });
     }
-  }
-
-  String _mapApiError(String code, String fallback) {
-    switch (code) {
-      case 'DEVICE_ALREADY_BOUND':
-        return 'This device is already bound to another student. Contact admin.';
-      case 'DEVICE_LOCKED':
-        return 'Your account is locked. Contact admin.';
-      case 'WEAK_FACE':
-        return 'Face samples were too low quality. Try better lighting.';
-      case 'FACE_NOT_ENROLLED':
-        return 'No enrolment found for this account.';
-      case 'AUTH_INVALID_CREDENTIALS':
-      case 'AUTH_REQUIRED':
-        return 'Session expired. Please log in again.';
-      default:
-        return fallback;
-    }
-  }
-
-  void _resetForRetry() {
-    setState(() {
-      _capturedPaths.clear();
-      _capturedFaces.clear();
-      _statusMessage = 'Centre your face inside the frame.';
-      _errorCode = '';
-    });
   }
 
   @override
   void dispose() {
     _cameraController?.dispose();
-    _biometrics.dispose();
+    _biometricService.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_initialising) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        appBar: GradientAppBar(
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const GradientAppBar(
           title: 'Biometric Registration',
           gradient: AppGradients.primaryDeep,
           showBackButton: true,
         ),
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
-    final camera = _cameraController;
-    final cameraReady = camera != null && camera.value.isInitialized;
-    final progress = _capturedPaths.length;
-    final done = progress >= _kRequiredSamples;
+
+    final isError =
+        _statusMessage.contains('Error') || _statusMessage.contains('No face');
 
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: const GradientAppBar(
+      extendBodyBehindAppBar: true,
+      appBar: GradientAppBar(
         title: 'Biometric Registration',
         gradient: AppGradients.primaryDeep,
         showBackButton: true,
@@ -245,35 +189,31 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                if (cameraReady)
-                  CameraPreview(camera)
-                else
-                  const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
+                CameraPreview(_cameraController!),
+                // Pulse frame overlay
                 PulseFrame(
-                  active: _busy,
-                  color: _busy ? AppColors.warning : AppColors.success,
+                  active: _isProcessing,
+                  color: _isProcessing ? AppColors.warning : AppColors.success,
                   size: 260,
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppRadii.xl),
-              ),
+                  top: Radius.circular(AppRadii.xl)),
               boxShadow: AppShadows.medium,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 StepIndicator(
-                  labels: const ['Sample 1', 'Sample 2', 'Sample 3'],
-                  activeIndex: progress.clamp(0, _kRequiredSamples - 1),
+                  labels: _steps,
+                  activeIndex: _currentStep,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
@@ -282,56 +222,21 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: _errorCode.isNotEmpty
-                        ? AppColors.danger
-                        : AppColors.textPrimary,
+                    color: isError ? AppColors.danger : AppColors.textPrimary,
                   ),
                 ),
-                if (_errorCode.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    _errorCode,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
                 const SizedBox(height: AppSpacing.md),
-                if (!done)
-                  PrimaryButton(
-                    label: _busy ? 'Working...' : 'Capture Sample',
-                    icon: Icons.camera_alt_rounded,
-                    gradient: AppGradients.primary,
-                    loading: _busy,
-                    expand: true,
-                    height: 52,
-                    onPressed: _onCapturePressed,
-                  )
-                else
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GhostButton(
-                          label: 'Restart',
-                          icon: Icons.refresh_rounded,
-                          onPressed: _resetForRetry,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: PrimaryButton(
-                          label: 'Enrol Now',
-                          icon: Icons.fingerprint_rounded,
-                          gradient: AppGradients.success,
-                          expand: true,
-                          height: 52,
-                          onPressed: _busy ? null : _submit,
-                        ),
-                      ),
-                    ],
-                  ),
+                PrimaryButton(
+                  label: _isProcessing
+                      ? 'Processing...'
+                      : 'Register Device & Face',
+                  icon: Icons.fingerprint_rounded,
+                  gradient: AppGradients.success,
+                  loading: _isProcessing,
+                  expand: true,
+                  height: 52,
+                  onPressed: _captureAndRegister,
+                ),
               ],
             ),
           ),

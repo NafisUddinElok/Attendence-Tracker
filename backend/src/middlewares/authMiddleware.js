@@ -1,39 +1,34 @@
-const { verifyAccess } = require('../utils/jwt');
-const { AppError } = require('../errors/AppError');
+const jwt = require('jsonwebtoken');
 
-/**
- * Verify the JWT access token and populate `req.user = { id, role, ver }`.
- * 401 with a structured AppError on failure.
- */
-exports.protect = (req, _res, next) => {
-  const header = req.headers.authorization || '';
-  let token = null;
-  if (header.startsWith('Bearer ')) token = header.slice('Bearer '.length).trim();
+// 1. Verify JWT Token
+exports.protect = (req, res, next) => {
+  let token;
+
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
   if (!token) {
-    return next(new AppError('AUTH_NO_TOKEN', 'Access denied. No token provided.', 401));
+    return res.status(401).json({ message: 'Access denied. No token provided.' });
   }
+
   try {
-    const decoded = verifyAccess(token);
-    req.user = { id: decoded.sub, role: decoded.role, ver: decoded.ver };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // Contains { id, role }
     next();
-  } catch (_err) {
-    next(new AppError('AUTH_BAD_TOKEN', 'Invalid or expired token.', 401));
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid or expired token.' });
   }
 };
 
-/**
- * Authorize one of the given roles. Use after `protect`.
- */
-exports.requireRole = (...roles) => (req, _res, next) => {
-  if (!req.user || !roles.includes(req.user.role)) {
-    return next(new AppError(
-      'FORBIDDEN_ROLE',
-      `Role '${req.user && req.user.role}' is not authorized for this route.`,
-      403,
-    ));
-  }
-  next();
+// 2. Role Authorization Helper
+exports.authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        message: `Forbidden: User role '${req.user.role}' is not authorized to access this route.` 
+      });
+    }
+    next();
+  };
 };
-
-// Backwards-compatible alias for existing routes that use `authorizeRoles`.
-exports.authorizeRoles = exports.requireRole;

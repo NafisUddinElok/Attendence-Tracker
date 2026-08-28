@@ -260,11 +260,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.face_retouching_natural, color: AppColors.info, size: 20),
-                  SizedBox(width: AppSpacing.sm),
-                  Text('Biometric Vector (192-D)',
+                  const Icon(Icons.face_retouching_natural, color: AppColors.info, size: 20),
+                  const SizedBox(width: AppSpacing.sm),
+                  const Text('Biometric Vector (192-D)',
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 ],
               ),

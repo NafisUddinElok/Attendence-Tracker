@@ -178,10 +178,10 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                       TextFormField(
                         controller: codeCtrl,
                         textCapitalization: TextCapitalization.characters,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Course Code',
                           hintText: 'e.g. IPE-301, CSE-231',
-                          prefixIcon: Icon(Icons.code),
+                          prefixIcon: const Icon(Icons.code),
                         ),
                         validator: (val) => val == null || val.trim().isEmpty
                             ? 'Course code is required'
@@ -190,10 +190,10 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: titleCtrl,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Course Title',
                           hintText: 'e.g. Supply Chain Management',
-                          prefixIcon: Icon(Icons.book_outlined),
+                          prefixIcon: const Icon(Icons.book_outlined),
                         ),
                         validator: (val) => val == null || val.trim().isEmpty
                             ? 'Course title is required'
@@ -202,9 +202,9 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                       const SizedBox(height: AppSpacing.md),
                       DropdownButtonFormField<String>(
                         initialValue: selectedDept,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Department',
-                          prefixIcon: Icon(Icons.account_balance_outlined),
+                          prefixIcon: const Icon(Icons.account_balance_outlined),
                         ),
                         items: [
                           'IPE',
@@ -263,8 +263,8 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                                       response.statusCode == 200) {
                                     navigator.pop();
                                     messenger.showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
+                                      SnackBar(
+                                        content: const Text(
                                             '✅ Course created successfully!'),
                                         backgroundColor: AppColors.success,
                                         behavior: SnackBarBehavior.floating,
@@ -311,7 +311,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const GradientAppBar(
+      appBar: GradientAppBar(
         title: 'My Courses · Instructor',
         gradient: AppGradients.teacherDeep,
         showBackButton: true,
@@ -355,7 +355,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
                     ),
                   )
                 : _courses.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                         icon: Icons.menu_book_rounded,
                         title: 'No courses yet',
                         subtitle:

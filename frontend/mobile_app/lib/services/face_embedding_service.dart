@@ -1,16 +1,8 @@
 import 'dart:io';
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
-
-/// The TFLite model (mobilefacenet) emits a 192-dimensional face vector.
-/// The Phase 6 backend contract (FACE_EMBED_DIM) is 128. We truncate the
-/// output to the first 128 components and re-L2-normalise so cosine
-/// similarity downstream still works as expected.
-const int kTfliteOutputDim = 192;
-const int kContractEmbeddingDim = 128;
 
 class FaceEmbeddingService {
   Interpreter? _interpreter;
@@ -24,23 +16,24 @@ class FaceEmbeddingService {
   );
 
   Future<void> init() async {
+    // already loaded, skip
     if (_interpreter != null) return;
+    // prevent duplicate parallel init calls
     if (_isInitializing) return;
 
     _isInitializing = true;
     try {
       _interpreter = await Interpreter.fromAsset('assets/models/mobilefacenet.tflite');
-      debugPrint('? TFLite model loaded successfully');
+      debugPrint('✅ TFLite model loaded successfully');
     } catch (e) {
-      debugPrint('? Error loading TFLite model: ');
-      _interpreter = null;
+      debugPrint('❌ Error loading TFLite model: $e');
+      _interpreter = null; // explicit, so caller can check
     } finally {
       _isInitializing = false;
     }
   }
 
-  /// Detect exactly one face from an image file. Returns null if zero or
-  /// multiple faces are found (proxy-attack guard).
+  // Detect single face from image file
   Future<Face?> detectSingleFace(String imagePath) async {
     final inputImage = InputImage.fromFilePath(imagePath);
     final faces = await _faceDetector.processImage(inputImage);
@@ -51,35 +44,16 @@ class FaceEmbeddingService {
     return null;
   }
 
-  /// Truncate a TFLite embedding to the backend's expected dimension and
-  /// re-normalise to unit length.
-  List<double> projectToContractDim(List<double> raw) {
-    final dim = math.min(raw.length, kContractEmbeddingDim);
-    final out = List<double>.filled(kContractEmbeddingDim, 0.0);
-    for (int i = 0; i < dim; i++) {
-      out[i] = raw[i];
-    }
-    var norm = 0.0;
-    for (int i = 0; i < kContractEmbeddingDim; i++) {
-      norm += out[i] * out[i];
-    }
-    norm = math.sqrt(norm);
-    if (norm == 0) return out; // caller should reject
-    for (int i = 0; i < kContractEmbeddingDim; i++) {
-      out[i] /= norm;
-    }
-    return out;
-  }
-
-  /// Crop face, resize to 112x112, normalise [-1, 1], and extract the
-  /// 192D TFLite vector. Returns the 128-D contracted form expected by
-  /// the backend.
+  // Crop face, resize to 112x112, normalize [-1, 1], and extract 192D vector
   Future<List<double>?> extractFaceEmbedding(String imagePath, Face face) async {
+    // make sure model is loaded before using it
     if (_interpreter == null) {
       await init();
     }
+
+    // model still failed to load -> bail out gracefully instead of crashing
     if (_interpreter == null) {
-      debugPrint('? Interpreter is null, cannot extract embedding');
+      debugPrint('❌ Interpreter is null, cannot extract embedding');
       return null;
     }
 
@@ -114,38 +88,16 @@ class FaceEmbeddingService {
       ),
     );
 
-    var output = List.filled(1 * kTfliteOutputDim, 0.0).reshape([1, kTfliteOutputDim]);
+    var output = List.filled(1 * 192, 0.0).reshape([1, 192]);
 
     try {
       _interpreter!.run(input, output);
     } catch (e) {
-      debugPrint('? Error running interpreter: ');
+      debugPrint('❌ Error running interpreter: $e');
       return null;
     }
 
-    final raw = List<double>.from(output[0]);
-    return projectToContractDim(raw);
-  }
-
-  /// Phase 6 helper: capture multiple photos in quick succession, run them
-  /// through the model, and return the canonical 128-D vectors.
-  /// Used by face enrolment to feed the server an embeddings[] array.
-  Future<List<List<double>>?> extractMultipleEmbeddings(
-    List<String> imagePaths,
-    List<Face> faces,
-  ) async {
-    if (imagePaths.length != faces.length) {
-      throw ArgumentError(
-        'imagePaths.length () != faces.length ()',
-      );
-    }
-    final out = <List<double>>[];
-    for (var i = 0; i < imagePaths.length; i++) {
-      final v = await extractFaceEmbedding(imagePaths[i], faces[i]);
-      if (v == null) return null;
-      out.add(v);
-    }
-    return out;
+    return List<double>.from(output[0]);
   }
 
   void dispose() {
@@ -154,4 +106,3 @@ class FaceEmbeddingService {
     _interpreter = null;
   }
 }
-
