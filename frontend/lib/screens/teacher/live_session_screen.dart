@@ -21,7 +21,7 @@ class LiveSessionScreen extends ConsumerStatefulWidget {
 }
 
 class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
-  AttendanceMode _mode = AttendanceMode.automated;
+  AttendanceMode _mode = AttendanceMode.manual;
 
   // Automated mode state
   SessionModel? _session;
