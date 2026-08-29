@@ -139,7 +139,7 @@ class _ClassScreenState extends ConsumerState<ClassScreen> {
             deviceInstallId: deviceId,
           );
 
-      setState(() => _claimed = true);
+      if (mounted) setState(() => _claimed = true);
       ref.invalidate(studentClassesProvider);
       await _checkSession();
       if (mounted) {
@@ -151,11 +151,11 @@ class _ClassScreenState extends ConsumerState<ClassScreen> {
         );
       }
     } on ApiException catch (e) {
-      setState(() => _claimError = e.message);
+      if (mounted) setState(() => _claimError = e.message);
     } catch (e) {
-      setState(() => _claimError = e.toString());
+      if (mounted) setState(() => _claimError = e.toString());
     } finally {
-      setState(() => _claiming = false);
+      if (mounted) setState(() => _claiming = false);
     }
   }
 

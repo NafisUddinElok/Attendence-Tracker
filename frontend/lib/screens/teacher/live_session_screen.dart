@@ -66,12 +66,14 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
     try {
       final students =
           await ref.read(apiClientProvider).getClassStudents(widget.classId);
-      setState(() {
-        _students = students;
-        for (final s in students) {
-          _attendanceMap.putIfAbsent(s.registrationNo, () => 'P');
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _students = students;
+          for (final s in students) {
+            _attendanceMap.putIfAbsent(s.registrationNo, () => 'P');
+          }
+        });
+      }
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loadingStudents = false);
@@ -239,7 +241,7 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
         );
       }
     } finally {
-      setState(() => _savingManual = false);
+      if (mounted) setState(() => _savingManual = false);
     }
   }
 

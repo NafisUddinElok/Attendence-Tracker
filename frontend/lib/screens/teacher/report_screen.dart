@@ -33,11 +33,11 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     try {
       final matrix =
           await ref.read(apiClientProvider).getAttendanceMatrix(widget.classId);
-      setState(() => _matrix = matrix);
+      if (mounted) setState(() => _matrix = matrix);
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 

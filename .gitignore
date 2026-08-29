@@ -36,3 +36,6 @@ backend/build/
 
 # Ephemeral build files
 *.log
+.env
+.env.*
+*.env

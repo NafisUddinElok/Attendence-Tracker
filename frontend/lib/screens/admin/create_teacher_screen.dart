@@ -53,7 +53,7 @@ class _CreateTeacherScreenState extends ConsumerState<CreateTeacherScreen> {
         );
       }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 

@@ -36,7 +36,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
     try {
       final students =
           await ref.read(apiClientProvider).getClassStudents(widget.classId);
-      setState(() => _students = students);
+      if (mounted) setState(() => _students = students);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -46,7 +46,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
         );
       }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 

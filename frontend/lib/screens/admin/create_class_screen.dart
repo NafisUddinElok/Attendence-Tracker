@@ -98,7 +98,7 @@ class _CreateClassScreenState extends ConsumerState<CreateClassScreen> {
         );
       }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 

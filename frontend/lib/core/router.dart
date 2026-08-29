@@ -26,18 +26,26 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     redirect: (context, state) {
       final loggedIn = authState.isLoggedIn;
-      final onLogin = state.matchedLocation == '/';
+      final location = state.matchedLocation;
+      final onLogin = location == '/';
 
       if (!loggedIn) return onLogin ? null : '/';
-      if (onLogin) {
-        final role = authState.role;
-        return switch (role) {
-          kRoleAdmin => '/admin',
-          kRoleTeacher => '/teacher',
-          kRoleStudent => '/student',
-          _ => '/',
-        };
-      }
+
+      final role = authState.role;
+      final roleHome = switch (role) {
+        kRoleAdmin => '/admin',
+        kRoleTeacher => '/teacher',
+        kRoleStudent => '/student',
+        _ => '/',
+      };
+
+      if (onLogin) return roleHome;
+
+      // Role-based route guard preventing cross-role route access
+      if (location.startsWith('/admin') && role != kRoleAdmin) return roleHome;
+      if (location.startsWith('/teacher') && role != kRoleTeacher) return roleHome;
+      if (location.startsWith('/student') && role != kRoleStudent) return roleHome;
+
       return null;
     },
     routes: [
