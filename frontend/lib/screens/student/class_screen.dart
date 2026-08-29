@@ -112,7 +112,8 @@ class _ClassScreenState extends ConsumerState<ClassScreen> {
       }
       if (perm == LocationPermission.denied ||
           perm == LocationPermission.deniedForever) {
-        setState(() => _claimError = 'Location permission is required to mark attendance.');
+        setState(() => _claimError =
+            'Location permission is required to mark attendance.');
         return;
       }
 
@@ -123,7 +124,8 @@ class _ClassScreenState extends ConsumerState<ClassScreen> {
         ),
       ).timeout(
         const Duration(seconds: 5),
-        onTimeout: () => throw 'Location acquisition timed out. Please ensure GPS is enabled.',
+        onTimeout: () =>
+            throw 'Location acquisition timed out. Please ensure GPS is enabled.',
       );
 
       const uuid = Uuid();
@@ -290,7 +292,8 @@ class _ClassScreenState extends ConsumerState<ClassScreen> {
                           if (course?['teacherEmail'] != null)
                             Text(
                               'Teacher: ${course!['teacherEmail']}',
-                              style: const TextStyle(color: Colors.black54, fontSize: 12),
+                              style: const TextStyle(
+                                  color: Colors.black54, fontSize: 12),
                             ),
                           const SizedBox(height: 8),
                           const Divider(),
@@ -299,9 +302,13 @@ class _ClassScreenState extends ConsumerState<ClassScreen> {
                             children: [
                               Text('Total: $totalSessions'),
                               Text('Present: $presentCount',
-                                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                                  style: const TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.bold)),
                               Text('Absent: ${totalSessions - presentCount}',
-                                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                  style: const TextStyle(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ],
@@ -312,7 +319,8 @@ class _ClassScreenState extends ConsumerState<ClassScreen> {
 
                   // 3. Attendance History Header
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                     child: Text(
                       'Attendance History ($totalSessions sessions)',
                       style: const TextStyle(fontWeight: FontWeight.bold),
@@ -349,7 +357,9 @@ class _ClassScreenState extends ConsumerState<ClassScreen> {
                           ),
                           title: Text(formattedDate,
                               style: const TextStyle(fontSize: 13)),
-                          subtitle: dist != null ? Text(dist, style: const TextStyle(fontSize: 11)) : null,
+                          subtitle: dist != null
+                              ? Text(dist, style: const TextStyle(fontSize: 11))
+                              : null,
                           trailing: Text(
                             isPresent ? 'PRESENT' : 'ABSENT',
                             style: TextStyle(

@@ -101,10 +101,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     decoration: const InputDecoration(
                       hintText: 'e.g. 2023831001 or admin@example.com',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                     ),
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? 'Please enter username' : null,
+                    validator: (v) => v == null || v.trim().isEmpty
+                        ? 'Please enter username'
+                        : null,
                   ),
                   const SizedBox(height: 14),
 
@@ -120,7 +122,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     decoration: InputDecoration(
                       hintText: 'Enter password',
                       border: const OutlineInputBorder(),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 12),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
@@ -153,7 +156,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             )
                           : const Text(
                               'LOGIN',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.bold),
                             ),
                     ),
                   ),

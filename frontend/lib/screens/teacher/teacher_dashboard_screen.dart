@@ -186,8 +186,7 @@ class _TeacherClassCard extends StatelessWidget {
               Expanded(
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        hasSession ? Colors.green : Colors.blue,
+                    backgroundColor: hasSession ? Colors.green : Colors.blue,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),

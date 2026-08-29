@@ -1,1 +1,21 @@
 include: package:dart_frog_lint/recommended.yaml
+
+analyzer:
+  errors:
+    lines_longer_than_80_chars: ignore
+    prefer_single_quotes: ignore
+    directives_ordering: ignore
+    leading_newlines_in_multiline_strings: ignore
+    unnecessary_raw_strings: ignore
+    omit_local_variable_types: ignore
+    prefer_final_locals: ignore
+    avoid_multiple_declarations_per_line: ignore
+    cast_nullable_to_non_nullable: ignore
+    avoid_print: ignore
+    public_member_api_docs: ignore
+    prefer_constructors_over_static_methods: ignore
+    curly_braces_in_flow_control_structures: ignore
+    comment_references: ignore
+    sort_pub_dependencies: ignore
+    avoid_redundant_argument_values: ignore
+    cascade_invocations: ignore

@@ -337,11 +337,18 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Total: ${_students.length}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13)),
                         Text('Present: ${_countStatus('P')}',
-                            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
+                            style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
                         Text('Absent: ${_countStatus('A')}',
-                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                            style: const TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -366,21 +373,28 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-
               if (_loadingStudents)
-                const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                const Center(
+                    child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: CircularProgressIndicator()))
               else if (_students.isEmpty)
-                const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('No students in class.')))
+                const Center(
+                    child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('No students in class.')))
               else ...[
                 // Student list with 46x44px touch targets
                 ..._students.asMap().entries.map((entry) {
                   final i = entry.key;
                   final s = entry.value;
-                  final isPresent = (_attendanceMap[s.registrationNo] ?? 'P') == 'P';
+                  final isPresent =
+                      (_attendanceMap[s.registrationNo] ?? 'P') == 'P';
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(4),
@@ -396,7 +410,8 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                           radius: 12,
                           backgroundColor: Colors.grey.shade200,
                           child: Text('${i + 1}',
-                              style: const TextStyle(fontSize: 11, color: Colors.black87)),
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.black87)),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -405,10 +420,13 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(s.registrationNo,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14)),
                               if (s.department != null)
                                 Text(s.department!,
-                                    style: const TextStyle(fontSize: 11, color: Colors.black54),
+                                    style: const TextStyle(
+                                        fontSize: 11, color: Colors.black54),
                                     overflow: TextOverflow.ellipsis),
                             ],
                           ),
@@ -417,16 +435,21 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
 
                         // Large P Button (min 44x44 tap target)
                         InkWell(
-                          onTap: () => setState(() => _attendanceMap[s.registrationNo] = 'P'),
+                          onTap: () => setState(
+                              () => _attendanceMap[s.registrationNo] = 'P'),
                           borderRadius: BorderRadius.circular(4),
                           child: Container(
                             width: 46,
                             height: 44,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: isPresent ? Colors.green : Colors.grey.shade100,
+                              color: isPresent
+                                  ? Colors.green
+                                  : Colors.grey.shade100,
                               border: Border.all(
-                                color: isPresent ? Colors.green : Colors.grey.shade400,
+                                color: isPresent
+                                    ? Colors.green
+                                    : Colors.grey.shade400,
                                 width: isPresent ? 1.5 : 1,
                               ),
                               borderRadius: BorderRadius.circular(4),
@@ -436,7 +459,8 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: isPresent ? Colors.white : Colors.black87,
+                                color:
+                                    isPresent ? Colors.white : Colors.black87,
                               ),
                             ),
                           ),
@@ -445,16 +469,21 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
 
                         // Large A Button (min 44x44 tap target)
                         InkWell(
-                          onTap: () => setState(() => _attendanceMap[s.registrationNo] = 'A'),
+                          onTap: () => setState(
+                              () => _attendanceMap[s.registrationNo] = 'A'),
                           borderRadius: BorderRadius.circular(4),
                           child: Container(
                             width: 46,
                             height: 44,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: !isPresent ? Colors.red : Colors.grey.shade100,
+                              color: !isPresent
+                                  ? Colors.red
+                                  : Colors.grey.shade100,
                               border: Border.all(
-                                color: !isPresent ? Colors.red : Colors.grey.shade400,
+                                color: !isPresent
+                                    ? Colors.red
+                                    : Colors.grey.shade400,
                                 width: !isPresent ? 1.5 : 1,
                               ),
                               borderRadius: BorderRadius.circular(4),
@@ -464,7 +493,8 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: !isPresent ? Colors.white : Colors.black87,
+                                color:
+                                    !isPresent ? Colors.white : Colors.black87,
                               ),
                             ),
                           ),
@@ -515,14 +545,16 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                       ),
                       Text(
                         '${_checkIns.length} student(s) checked in',
-                        style: const TextStyle(color: Colors.black54, fontSize: 12),
+                        style: const TextStyle(
+                            color: Colors.black54, fontSize: 12),
                       ),
                       const SizedBox(height: 10),
                       SizedBox(
                         width: double.infinity,
                         height: 42,
                         child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red),
                           onPressed: _endAutomatedSession,
                           child: const Text('STOP SESSION'),
                         ),
@@ -536,7 +568,6 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                   ],
                 ),
               ),
-
               if (!active) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -549,7 +580,8 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Radius:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text('Radius:',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Wrap(
                         spacing: 6,
@@ -557,21 +589,24 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                           final val = p['value'] as double;
                           final selected = _radius == val;
                           return ChoiceChip(
-                            label: Text(p['label'] as String, style: const TextStyle(fontSize: 12)),
+                            label: Text(p['label'] as String,
+                                style: const TextStyle(fontSize: 12)),
                             selected: selected,
                             onSelected: (_) => setState(() => _radius = val),
                           );
                         }).toList(),
                       ),
                       const SizedBox(height: 10),
-                      const Text('Duration:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text('Duration:',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Wrap(
                         spacing: 6,
                         children: kSessionDurations.map((d) {
                           final selected = _duration == d;
                           return ChoiceChip(
-                            label: Text(d >= 60 ? '${d ~/ 60}m' : '${d}s', style: const TextStyle(fontSize: 12)),
+                            label: Text(d >= 60 ? '${d ~/ 60}m' : '${d}s',
+                                style: const TextStyle(fontSize: 12)),
                             selected: selected,
                             onSelected: (_) => setState(() => _duration = d),
                           );
@@ -583,14 +618,15 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                         height: 42,
                         child: ElevatedButton(
                           onPressed: _loading ? null : _startAutomatedSession,
-                          child: Text(_loading ? 'STARTING...' : 'START GPS ATTENDANCE'),
+                          child: Text(_loading
+                              ? 'STARTING...'
+                              : 'START GPS ATTENDANCE'),
                         ),
                       ),
                     ],
                   ),
                 ),
               ],
-
               if (_checkIns.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text(
@@ -609,11 +645,16 @@ class _LiveSessionScreenState extends ConsumerState<LiveSessionScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                        const Icon(Icons.check_circle,
+                            color: Colors.green, size: 20),
                         const SizedBox(width: 8),
-                        Text(r.registrationNo, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(r.registrationNo,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                         const Spacer(),
-                        Text('${r.distanceMeters?.round() ?? 0}m away', style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                        Text('${r.distanceMeters?.round() ?? 0}m away',
+                            style: const TextStyle(
+                                color: Colors.black54, fontSize: 12)),
                       ],
                     ),
                   ),

@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 /// Dynamic API base URL:
-/// - Android emulator connects to host machine via 10.0.2.2
+/// - Real Android Phone connects to Mac via local Wi-Fi IP: 10.201.42.71
 /// - Web, macOS, iOS connect via localhost
 String get kApiBase {
   if (kIsWeb) return 'http://localhost:8080';
   if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:8080';
+    return 'http://10.201.42.71:8080';
   }
   return 'http://localhost:8080';
 }

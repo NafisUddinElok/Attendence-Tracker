@@ -39,8 +39,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         child: historyAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
-            child: Text(e.toString(),
-                style: const TextStyle(color: Colors.red)),
+            child:
+                Text(e.toString(), style: const TextStyle(color: Colors.red)),
           ),
           data: (history) {
             if (history.isEmpty) {
@@ -62,7 +62,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             return Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(

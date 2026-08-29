@@ -76,8 +76,7 @@ class ClassListScreen extends ConsumerWidget {
                                 c.status,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color:
-                                      isActive ? Colors.green : Colors.grey,
+                                  color: isActive ? Colors.green : Colors.grey,
                                 ),
                               ),
                             ],
@@ -131,8 +130,7 @@ class ClassListScreen extends ConsumerWidget {
                                           child: const Text('END CLASS',
                                               style: TextStyle(
                                                   color: Colors.red,
-                                                  fontWeight:
-                                                      FontWeight.bold)),
+                                                  fontWeight: FontWeight.bold)),
                                         ),
                                       ],
                                     ),

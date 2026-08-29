@@ -86,7 +86,9 @@ class _CreateTeacherScreenState extends ConsumerState<CreateTeacherScreen> {
                           TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
-                    const Text('Email Address:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text('Email Address:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 4),
                     TextFormField(
                       controller: _emailCtrl,
@@ -94,7 +96,8 @@ class _CreateTeacherScreenState extends ConsumerState<CreateTeacherScreen> {
                       decoration: const InputDecoration(
                         hintText: 'teacher@university.edu',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
                       validator: (v) {
                         if (v == null || !v.contains('@')) {
@@ -104,7 +107,9 @@ class _CreateTeacherScreenState extends ConsumerState<CreateTeacherScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    const Text('Password:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text('Password:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 4),
                     TextFormField(
                       controller: _passCtrl,
@@ -112,19 +117,23 @@ class _CreateTeacherScreenState extends ConsumerState<CreateTeacherScreen> {
                       decoration: const InputDecoration(
                         hintText: 'Enter password',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
                       validator: (v) =>
                           v == null || v.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
-                    const Text('Department:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text('Department:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
                       initialValue: _selectedDept,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
                       items: kDepartments
                           .map(
@@ -141,7 +150,8 @@ class _CreateTeacherScreenState extends ConsumerState<CreateTeacherScreen> {
                       child: ElevatedButton(
                         onPressed: _loading ? null : _create,
                         child: _loading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
                             : const Text('ADD TEACHER'),
                       ),
                     ),

@@ -77,24 +77,29 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     children: [
                       const Text(
                         'Reset User Password',
-                        style:
-                            TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
-                      const Text('Email or Reg No:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const Text('Email or Reg No:',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13)),
                       const SizedBox(height: 4),
                       TextFormField(
                         controller: _identifierCtrl,
                         decoration: const InputDecoration(
                           hintText: '2023831001 or teacher@example.com',
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 12),
                         ),
                         validator: (v) =>
                             v == null || v.trim().isEmpty ? 'Required' : null,
                       ),
                       const SizedBox(height: 12),
-                      const Text('New Password:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const Text('New Password:',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13)),
                       const SizedBox(height: 4),
                       TextFormField(
                         controller: _newPassCtrl,
@@ -102,7 +107,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         decoration: const InputDecoration(
                           hintText: 'Enter new password',
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 12),
                         ),
                         validator: (v) {
                           if (v == null || v.length < 4) {
@@ -112,7 +118,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         },
                       ),
                       const SizedBox(height: 12),
-                      const Text('Confirm Password:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const Text('Confirm Password:',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13)),
                       const SizedBox(height: 4),
                       TextFormField(
                         controller: _confirmPassCtrl,
@@ -120,7 +128,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         decoration: const InputDecoration(
                           hintText: 'Re-enter new password',
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 12),
                         ),
                         validator: (v) {
                           if (v != _newPassCtrl.text) {
@@ -139,7 +148,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                           ),
                           onPressed: _loading ? null : _reset,
                           child: _loading
-                              ? const CircularProgressIndicator(color: Colors.white)
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white)
                               : const Text('RESET PASSWORD'),
                         ),
                       ),

@@ -131,14 +131,17 @@ class _CreateClassScreenState extends ConsumerState<CreateClassScreen> {
                           TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
-                    const Text('Department:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text('Department:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
                       isExpanded: true,
                       initialValue: _selectedDept,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
                       items: kDepartments
                           .map(
@@ -162,14 +165,18 @@ class _CreateClassScreenState extends ConsumerState<CreateClassScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Session:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              const Text('Session:',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13)),
                               const SizedBox(height: 4),
                               TextFormField(
                                 controller: _sessionCtrl,
                                 decoration: const InputDecoration(
                                   hintText: '2023-24',
                                   border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 12),
                                 ),
                                 validator: (v) =>
                                     v == null || v.isEmpty ? 'Required' : null,
@@ -182,13 +189,17 @@ class _CreateClassScreenState extends ConsumerState<CreateClassScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Semester:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              const Text('Semester:',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13)),
                               const SizedBox(height: 4),
                               DropdownButtonFormField<String>(
                                 initialValue: _selectedSemester,
                                 decoration: const InputDecoration(
                                   border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 12),
                                 ),
                                 items: kSemesters
                                     .map((s) => DropdownMenuItem(
@@ -203,38 +214,47 @@ class _CreateClassScreenState extends ConsumerState<CreateClassScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text('Subject Code:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text('Subject Code:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 4),
                     TextFormField(
                       controller: _subjectCodeCtrl,
                       decoration: const InputDecoration(
                         hintText: 'e.g. SWE-301',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
                       validator: (v) =>
                           v == null || v.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
-                    const Text('Subject Name (Optional):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text('Subject Name (Optional):',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 4),
                     TextFormField(
                       controller: _subjectNameCtrl,
                       decoration: const InputDecoration(
                         hintText: 'e.g. Software Architecture',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text('Assigned Teacher:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text('Assigned Teacher:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
                       isExpanded: true,
                       initialValue: _selectedTeacherId,
                       decoration: InputDecoration(
                         border: const OutlineInputBorder(),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 12),
                         suffixIcon: _loadingTeachers
                             ? const SizedBox(
                                 width: 16,
@@ -256,10 +276,8 @@ class _CreateClassScreenState extends ConsumerState<CreateClassScreen> {
                           ),
                         );
                       }).toList(),
-                      onChanged: (v) =>
-                          setState(() => _selectedTeacherId = v),
-                      validator: (v) =>
-                          v == null ? 'Select a teacher' : null,
+                      onChanged: (v) => setState(() => _selectedTeacherId = v),
+                      validator: (v) => v == null ? 'Select a teacher' : null,
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
@@ -268,7 +286,8 @@ class _CreateClassScreenState extends ConsumerState<CreateClassScreen> {
                       child: ElevatedButton(
                         onPressed: _loading ? null : _create,
                         child: _loading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
                             : const Text('CREATE CLASSROOM'),
                       ),
                     ),

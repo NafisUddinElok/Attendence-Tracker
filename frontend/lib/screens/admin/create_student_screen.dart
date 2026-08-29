@@ -119,7 +119,9 @@ class _CreateStudentScreenState extends ConsumerState<CreateStudentScreen> {
                           TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
-                    const Text('Registration Number:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text('Registration Number:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 4),
                     TextFormField(
                       controller: _regCtrl,
@@ -127,7 +129,8 @@ class _CreateStudentScreenState extends ConsumerState<CreateStudentScreen> {
                       decoration: const InputDecoration(
                         hintText: 'e.g. 2023831018',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
                       onChanged: _onRegChanged,
                       validator: (v) {
@@ -148,7 +151,9 @@ class _CreateStudentScreenState extends ConsumerState<CreateStudentScreen> {
                       ),
                     ],
                     const SizedBox(height: 12),
-                    const Text('Password:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text('Password:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 4),
                     TextFormField(
                       controller: _passCtrl,
@@ -156,7 +161,8 @@ class _CreateStudentScreenState extends ConsumerState<CreateStudentScreen> {
                       decoration: const InputDecoration(
                         hintText: 'Default: same as reg number',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
                       validator: (v) =>
                           v == null || v.isEmpty ? 'Required' : null,
@@ -168,7 +174,8 @@ class _CreateStudentScreenState extends ConsumerState<CreateStudentScreen> {
                       child: ElevatedButton(
                         onPressed: _loading ? null : _create,
                         child: _loading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
                             : const Text('ADD STUDENT'),
                       ),
                     ),

@@ -74,7 +74,8 @@ class Database {
   String? _parseUser(String url) {
     try {
       final uri = Uri.parse(url);
-      if (uri.userInfo.isNotEmpty) return Uri.decodeComponent(uri.userInfo.split(':').first);
+      if (uri.userInfo.isNotEmpty)
+        return Uri.decodeComponent(uri.userInfo.split(':').first);
     } catch (_) {}
     final match = RegExp(r'://([^:]+):').firstMatch(url);
     return match?.group(1);
