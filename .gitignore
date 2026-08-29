@@ -1,0 +1,38 @@
+# IDE & Editors
+.idea/
+.vscode/
+*.iml
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Dart & Flutter
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Dart Frog
+.dart_frog/
+
+# Web compiled output
+frontend/build/
+frontend/.dart_tool/
+frontend/.widget_preview/
+
+# Backend compiled output
+backend/.dart_tool/
+backend/.dart_frog/
+backend/build/
+
+# Ephemeral build files
+*.log

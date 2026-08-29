@@ -1,0 +1,13 @@
+# Dart/Dart Frog generated
+build/
+.dart_frog/
+.dart_tool/
+pubspec.lock
+
+# Environment secrets
+.env
+
+# IDE
+.idea/
+.vscode/
+*.iml
